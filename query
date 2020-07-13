@@ -1,0 +1,10 @@
+#!/bin/sh
+
+endpoint="http://localhost:8080/graphql"
+
+curl_cmd="curl -X POST -H 'Content-Type: application/json'"
+curl_cmd="${curl_cmd} --data '{ \"query\": \"{ users { users { username, email, createdAt } } }\" }'"
+curl_cmd="${curl_cmd} ${endpoint}"
+
+resp=$(eval ${curl_cmd})
+echo "${resp}" | jq '.'
