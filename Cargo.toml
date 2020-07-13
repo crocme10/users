@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
 clap = "2.33.1"
+config = "0.10"
 futures = "0.3"
 juniper = { git="https://github.com/graphql-rust/juniper.git", features = ["chrono"] }
 juniper_warp = { git="https://github.com/graphql-rust/juniper.git" }

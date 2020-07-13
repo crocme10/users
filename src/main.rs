@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use std::net::ToSocketAddrs;
 use warp::{self, http, Filter};
 
-use users::api::gql;
-use users::api::user::User;
+use users::api::{gql, user::User};
 use users::error;
+use users::settings::Settings;
 
 #[tokio::main]
 async fn main() -> Result<(), error::Error> {
@@ -19,7 +19,6 @@ async fn main() -> Result<(), error::Error> {
                 .value_name("HOST")
                 .short("h")
                 .long("host")
-                .default_value("localhost")
                 .help("Address serving this server"),
         )
         .arg(
@@ -27,7 +26,6 @@ async fn main() -> Result<(), error::Error> {
                 .value_name("PORT")
                 .short("p")
                 .long("port")
-                .default_value("8080")
                 .help("Port"),
         )
         .get_matches();
@@ -37,21 +35,7 @@ async fn main() -> Result<(), error::Error> {
     let drain = slog_async::Async::new(drain).build().fuse();
     let logger = slog::Logger::root(drain, o!());
 
-    let addr = matches
-        .value_of("address")
-        .ok_or_else(|| error::Error::MiscError {
-            msg: String::from("Could not get address"),
-        })?;
-
-    let port = matches
-        .value_of("port")
-        .ok_or_else(|| error::Error::MiscError {
-            msg: String::from("Could not get port"),
-        })?;
-
-    let port = port.parse::<u16>().map_err(|err| error::Error::MiscError {
-        msg: format!("Could not parse into a valid port number ({})", err),
-    })?;
+    let settings = Settings::new(&matches)?;
 
     let users = tokio::fs::read_to_string("users.json")
         .await
@@ -63,13 +47,13 @@ async fn main() -> Result<(), error::Error> {
     })?;
     let users: HashMap<String, String> = users.into_iter().map(|u| (u.username, u.email)).collect();
 
-    run_server((addr, port), logger, users).await?;
+    run_server(settings, logger, users).await?;
 
     Ok(())
 }
 
 async fn run_server(
-    addr: impl ToSocketAddrs,
+    settings: Settings,
     logger: Logger,
     users: HashMap<String, String>,
 ) -> Result<(), error::Error> {
@@ -90,6 +74,14 @@ async fn run_server(
 
     let routes = playground.or(graphql);
 
+    let host = settings.service.host;
+
+    let port = settings.service.port;
+    // .parse::<u16>()
+    // .map_err(|err| error::Error::MiscError {
+    //     msg: format!("Could not parse into a valid port number ({})", err),
+    // })?;
+    let addr = (host.as_str(), port);
     let addr = addr
         .to_socket_addrs()
         .context(error::IOError {
