@@ -1,5 +1,6 @@
 debug = true
-mode = "development"
+testing = true
+mode = "testing"
 
 [database]
 echo = true

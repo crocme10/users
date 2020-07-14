@@ -1,2 +1,3 @@
-[database]
-url = "postgres://postgres@localhost"
+debug = false
+testing = false
+mode = "default"

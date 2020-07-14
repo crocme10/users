@@ -14,6 +14,13 @@ pub enum Error {
         source: config::ConfigError,
     },
 
+    #[snafu(display("Env Var Error: {}", msg))]
+    #[snafu(visibility(pub))]
+    EnvVarError {
+        msg: String,
+        source: std::env::VarError,
+    },
+
     #[snafu(display("lack of imagination: {}", msg))]
     #[snafu(visibility(pub))]
     MiscError { msg: String },
@@ -51,6 +58,14 @@ impl IntoFieldError for Error {
             err @ Error::ConfigError { .. } => {
                 let errmsg = format!("{}", err);
                 FieldError::new("Config Error", graphql_value!({ "internal_error": errmsg }))
+            }
+
+            err @ Error::EnvVarError { .. } => {
+                let errmsg = format!("{}", err);
+                FieldError::new(
+                    "Environment Variable Error",
+                    graphql_value!({ "internal_error": errmsg }),
+                )
             }
 
             err @ Error::MiscError { .. } => {

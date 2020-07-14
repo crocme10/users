@@ -37,6 +37,13 @@ async fn main() -> Result<(), error::Error> {
 
     let settings = Settings::new(&matches)?;
 
+    info!(logger, "{} Mode", settings.mode);
+
+    if settings.debug {
+        info!(logger, "Debug: {}", settings.debug);
+        info!(logger, "Database URL: {}", settings.database.url);
+    }
+
     let users = tokio::fs::read_to_string("users.json")
         .await
         .context(error::TokioIOError {

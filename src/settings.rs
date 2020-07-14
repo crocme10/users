@@ -20,6 +20,8 @@ pub struct Service {
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     pub debug: bool,
+    pub testing: bool,
+    pub mode: String,
     pub database: Database,
     pub service: Service,
 }
@@ -56,6 +58,20 @@ impl Settings {
             .context(error::ConfigError {
                 msg: String::from("Could not merge configuration from environment variables"),
             })?;
+
+        // Now we take care of the database.url, which can be had from environment variables.
+        let key = match env.as_str() {
+            "testing" => "DB_TEST_URL",
+            _ => "DB_URL",
+        };
+
+        let db_url = env::var(key).context(error::EnvVarError {
+            msg: format!("Could not get env var {}", key),
+        })?;
+
+        s.set("database.url", db_url).context(error::ConfigError {
+            msg: String::from("Could not set database url from environment variable"),
+        })?;
 
         if let Some(addr) = matches.value_of("address") {
             s.set("service.host", addr).context(error::ConfigError {
