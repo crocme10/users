@@ -1,4 +1,4 @@
-use clap::{App, Arg};
+use clap::{App, Arg, SubCommand};
 use slog::{info, o, Drain, Logger};
 use snafu::ResultExt;
 use std::collections::HashMap;
@@ -14,19 +14,25 @@ async fn main() -> Result<(), error::Error> {
     let matches = App::new("Microservice for users")
         .version("0.1")
         .author("Matthieu Paindavoine")
-        .arg(
-            Arg::with_name("address")
-                .value_name("HOST")
-                .short("h")
-                .long("host")
-                .help("Address serving this server"),
-        )
-        .arg(
-            Arg::with_name("port")
-                .value_name("PORT")
-                .short("p")
-                .long("port")
-                .help("Port"),
+        .subcommand(
+            SubCommand::with_name("run")
+                .about("Publish users service")
+                .version("0.1")
+                .author("Matthieu Paindavoine <matt@area403.org>")
+                .arg(
+                    Arg::with_name("address")
+                        .value_name("HOST")
+                        .short("h")
+                        .long("host")
+                        .help("Address serving this server"),
+                )
+                .arg(
+                    Arg::with_name("port")
+                        .value_name("PORT")
+                        .short("p")
+                        .long("port")
+                        .help("Port"),
+                ),
         )
         .get_matches();
 
@@ -37,7 +43,7 @@ async fn main() -> Result<(), error::Error> {
 
     let settings = Settings::new(&matches)?;
 
-    info!(logger, "{} Mode", settings.mode);
+    info!(logger, "Mode: {}", settings.mode);
 
     if settings.debug {
         info!(logger, "Debug: {}", settings.debug);

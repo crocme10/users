@@ -61,8 +61,8 @@ impl Settings {
 
         // Now we take care of the database.url, which can be had from environment variables.
         let key = match env.as_str() {
-            "testing" => "DB_TEST_URL",
-            _ => "DB_URL",
+            "testing" => "DATABASE_TEST_URL",
+            _ => "DATABASE_URL",
         };
 
         let db_url = env::var(key).context(error::EnvVarError {
