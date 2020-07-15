@@ -1,5 +1,5 @@
-use clap::{App, Arg, SubCommand};
-use slog::{info, o, warn, Drain, Logger};
+use clap::{App, Arg, ArgMatches, SubCommand};
+use slog::{debug, info, o, warn, Drain, Logger};
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::net::ToSocketAddrs;
@@ -43,6 +43,12 @@ async fn main() -> Result<(), error::Error> {
                 .version("0.1")
                 .author("Matthieu Paindavoine <matt@area403.org>"),
         )
+        .subcommand(
+            SubCommand::with_name("test")
+                .about("Test Something")
+                .version("0.1")
+                .author("Matthieu Paindavoine <matt@area403.org>"),
+        )
         .get_matches();
 
     let decorator = slog_term::TermDecorator::new().build();
@@ -51,61 +57,78 @@ async fn main() -> Result<(), error::Error> {
     let logger = slog::Logger::root(drain, o!());
 
     match matches.subcommand() {
-        ("run", Some(sm)) => {
-            info!(logger, "Running application");
-            let settings = Settings::new(&sm)?;
-            info!(logger, "Mode: {}", settings.mode);
-
-            if settings.debug {
-                info!(logger, "Debug: {}", settings.debug);
-                info!(logger, "Database URL: {}", settings.database.url);
-            }
-
-            let users =
-                tokio::fs::read_to_string("users.json")
-                    .await
-                    .context(error::TokioIOError {
-                        msg: String::from("Could not open users.json"),
-                    })?;
-            let users: Vec<User> = serde_json::from_str(&users).context(error::JSONError {
-                msg: String::from("Could not deserialize users.json content"),
-            })?;
-            let users: HashMap<String, String> =
-                users.into_iter().map(|u| (u.username, u.email)).collect();
-
-            run_server(settings, logger, users).await?;
-        }
-        ("init", Some(sm)) => {
-            info!(logger, "Initiazing application");
-            let settings = Settings::new(&sm)?;
-
-            info!(logger, "Mode: {}", settings.mode);
-
-            if settings.debug {
-                info!(logger, "Debug: {}", settings.debug);
-                info!(logger, "Database URL: {}", settings.database.url);
-            }
-
-            info!(logger, "Initializing {}", settings.database.url);
-
-            init_db(settings, logger).await?;
-        }
+        ("run", Some(sm)) => run(sm, logger).await,
+        ("init", Some(sm)) => init(sm, logger).await,
+        ("test", Some(sm)) => test(sm, logger).await,
         _ => {
             warn!(logger, "Unrecognized subcommand");
+            Err(error::Error::MiscError {
+                msg: String::from("Unrecognized subcommand"),
+            })
         }
     }
-    Ok(())
+}
+
+async fn run<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), error::Error> {
+    info!(logger, "Running application");
+    let settings = Settings::new(matches)?;
+    info!(logger, "Mode: {}", settings.mode);
+
+    if settings.debug {
+        info!(logger, "Debug: {}", settings.debug);
+        info!(logger, "Database URL: {}", settings.database.url);
+    }
+
+    let users = tokio::fs::read_to_string("users.json")
+        .await
+        .context(error::TokioIOError {
+            msg: String::from("Could not open users.json"),
+        })?;
+    let users: Vec<User> = serde_json::from_str(&users).context(error::JSONError {
+        msg: String::from("Could not deserialize users.json content"),
+    })?;
+    let users: HashMap<String, String> = users.into_iter().map(|u| (u.username, u.email)).collect();
+
+    run_server(settings, logger, users).await
+}
+
+async fn init<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), error::Error> {
+    info!(logger, "Initiazing application");
+    let settings = Settings::new(matches)?;
+
+    info!(logger, "Mode: {}", settings.mode);
+
+    if settings.debug {
+        info!(logger, "Debug: {}", settings.debug);
+        info!(logger, "Database URL: {}", settings.database.url);
+    }
+
+    info!(logger, "Initializing {}", settings.database.url);
+
+    init_db(settings, logger).await
+}
+
+async fn test<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), error::Error> {
+    info!(logger, "Testing application");
+    let settings = Settings::new(matches)?;
+
+    info!(logger, "Mode: {}", settings.mode);
+
+    if settings.debug {
+        info!(logger, "Debug: {}", settings.debug);
+        info!(logger, "Database URL: {}", settings.database.url);
+    }
+
+    init_db(settings, logger).await
 }
 
 async fn init_db(settings: Settings, logger: Logger) -> Result<(), error::Error> {
+    // This is essentially running 'psql $DATABASE_URL < db/init.sql', and logging the
+    // psql output
     let mut cmd = Command::new("psql");
-
     cmd.arg(settings.database.url);
-
     cmd.stdout(Stdio::piped());
-
     let file = std::fs::File::open("db/init.sql").expect("file");
-
     cmd.stdin(Stdio::from(file));
 
     let mut child = cmd.spawn().context(error::TokioIOError {
@@ -129,7 +152,7 @@ async fn init_db(settings: Settings, logger: Logger) -> Result<(), error::Error>
     while let Some(line) = reader.next_line().await.context(error::TokioIOError {
         msg: String::from("Could not read from piped output"),
     })? {
-        info!(logger, "Line: {}", line);
+        debug!(logger, "psql {}", line);
     }
 
     Ok(())

@@ -29,3 +29,10 @@ path = "src/lib.rs"
 [[bin]]
 name = "service"
 path = "src/main.rs"
+
+[[test]]
+name = "cucumber"
+harness = false # Allows Cucumber to print output instead of libtest
+
+[dev-dependencies]
+cucumber = { package = "cucumber_rust", version = "^0.6.0" }
