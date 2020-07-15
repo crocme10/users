@@ -1,8 +1,11 @@
 use clap::{App, Arg, SubCommand};
-use slog::{info, o, Drain, Logger};
+use slog::{info, o, warn, Drain, Logger};
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::net::ToSocketAddrs;
+use std::process::Stdio;
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::Command;
 use warp::{self, http, Filter};
 
 use users::api::{gql, user::User};
@@ -34,6 +37,12 @@ async fn main() -> Result<(), error::Error> {
                         .help("Port"),
                 ),
         )
+        .subcommand(
+            SubCommand::with_name("init")
+                .about("Initialize Database")
+                .version("0.1")
+                .author("Matthieu Paindavoine <matt@area403.org>"),
+        )
         .get_matches();
 
     let decorator = slog_term::TermDecorator::new().build();
@@ -41,26 +50,87 @@ async fn main() -> Result<(), error::Error> {
     let drain = slog_async::Async::new(drain).build().fuse();
     let logger = slog::Logger::root(drain, o!());
 
-    let settings = Settings::new(&matches)?;
+    match matches.subcommand() {
+        ("run", Some(sm)) => {
+            info!(logger, "Running application");
+            let settings = Settings::new(&sm)?;
+            info!(logger, "Mode: {}", settings.mode);
 
-    info!(logger, "Mode: {}", settings.mode);
+            if settings.debug {
+                info!(logger, "Debug: {}", settings.debug);
+                info!(logger, "Database URL: {}", settings.database.url);
+            }
 
-    if settings.debug {
-        info!(logger, "Debug: {}", settings.debug);
-        info!(logger, "Database URL: {}", settings.database.url);
+            let users =
+                tokio::fs::read_to_string("users.json")
+                    .await
+                    .context(error::TokioIOError {
+                        msg: String::from("Could not open users.json"),
+                    })?;
+            let users: Vec<User> = serde_json::from_str(&users).context(error::JSONError {
+                msg: String::from("Could not deserialize users.json content"),
+            })?;
+            let users: HashMap<String, String> =
+                users.into_iter().map(|u| (u.username, u.email)).collect();
+
+            run_server(settings, logger, users).await?;
+        }
+        ("init", Some(sm)) => {
+            info!(logger, "Initiazing application");
+            let settings = Settings::new(&sm)?;
+
+            info!(logger, "Mode: {}", settings.mode);
+
+            if settings.debug {
+                info!(logger, "Debug: {}", settings.debug);
+                info!(logger, "Database URL: {}", settings.database.url);
+            }
+
+            info!(logger, "Initializing {}", settings.database.url);
+
+            init_db(settings, logger).await?;
+        }
+        _ => {
+            warn!(logger, "Unrecognized subcommand");
+        }
     }
+    Ok(())
+}
 
-    let users = tokio::fs::read_to_string("users.json")
-        .await
-        .context(error::TokioIOError {
-            msg: String::from("Could not open users.json"),
-        })?;
-    let users: Vec<User> = serde_json::from_str(&users).context(error::JSONError {
-        msg: String::from("Could not deserialize users.json content"),
+async fn init_db(settings: Settings, logger: Logger) -> Result<(), error::Error> {
+    let mut cmd = Command::new("psql");
+
+    cmd.arg(settings.database.url);
+
+    cmd.stdout(Stdio::piped());
+
+    let file = std::fs::File::open("db/init.sql").expect("file");
+
+    cmd.stdin(Stdio::from(file));
+
+    let mut child = cmd.spawn().context(error::TokioIOError {
+        msg: format!("Failed to execute psql"),
     })?;
-    let users: HashMap<String, String> = users.into_iter().map(|u| (u.username, u.email)).collect();
 
-    run_server(settings, logger, users).await?;
+    let stdout = child.stdout.take().ok_or(error::Error::MiscError {
+        msg: format!("child did not have a handle to stdout"),
+    })?;
+
+    let mut reader = BufReader::new(stdout).lines();
+
+    // Ensure the child process is spawned in the runtime so it can
+    // make progress on its own while we await for any output.
+    tokio::spawn(async {
+        let status = child.await.expect("child process encountered an error");
+
+        println!("child status was: {}", status);
+    });
+
+    while let Some(line) = reader.next_line().await.context(error::TokioIOError {
+        msg: String::from("Could not read from piped output"),
+    })? {
+        info!(logger, "Line: {}", line);
+    }
 
     Ok(())
 }

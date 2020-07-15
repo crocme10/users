@@ -11,8 +11,12 @@ ADD . ./
 RUN rm ./target/release/deps/users*
 RUN cargo build --release
 
-FROM debian:stretch-slim
+FROM debian:stretch
 ARG APP=/usr/src/app
+
+RUN apt-get update \
+    && apt-get install -y postgresql-client \
+    && rm -fr /var/lib/apt/list/*
 
 ENV TZ=Etc/UTC \
     RUN_MODE=development \
@@ -24,11 +28,13 @@ RUN groupadd $APP_USER \
 
 COPY --from=builder /users/target/release/service ${APP}/service
 COPY --from=builder /users/config ${APP}/config
+COPY --from=builder /users/db ${APP}/db
 COPY --from=builder /users/users.json ${APP}/users.json
+COPY --from=builder /users/docker/entrypoint.sh ${APP}/entrypoint.sh
 
 RUN chown -R $APP_USER:$APP_USER ${APP}
 
 USER $APP_USER
 WORKDIR ${APP}
 
-CMD ["./service"]
+CMD ["./entrypoint.sh"]
