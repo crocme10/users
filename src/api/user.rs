@@ -9,11 +9,11 @@ use super::gql::Context;
 use crate::error;
 
 /// The response body for multiple indexes
-#[derive(Debug, Serialize, GraphQLObject)]
+#[derive(Debug, Deserialize, Serialize, GraphQLObject)]
 #[serde(rename_all = "camelCase")]
 pub struct MultiUsersResponseBody {
-    users: Vec<User>,
-    users_count: i32,
+    pub users: Vec<User>,
+    pub users_count: i32,
 }
 
 impl From<Vec<User>> for MultiUsersResponseBody {

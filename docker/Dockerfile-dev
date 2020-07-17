@@ -16,6 +16,8 @@ ARG APP=/usr/src/app
 
 RUN apt-get update \
     && apt-get install -y postgresql-client \
+    && apt-get install -y pkg-config \
+    && apt-get install -y netcat \
     && rm -fr /var/lib/apt/list/*
 
 ENV TZ=Etc/UTC \
@@ -31,6 +33,7 @@ COPY --from=builder /users/config ${APP}/config
 COPY --from=builder /users/db ${APP}/db
 COPY --from=builder /users/users.json ${APP}/users.json
 COPY --from=builder /users/docker/entrypoint.sh ${APP}/entrypoint.sh
+COPY --from=builder /users/features ${APP}/features
 
 RUN chown -R $APP_USER:$APP_USER ${APP}
 
