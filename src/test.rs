@@ -121,6 +121,37 @@ steps!(MyWorld => {
             }
     };
 
+    when "I add a new user" |_world, _step| {
+        let data = "{ \"query\": \"mutation addUser($username: String!, $email: String!) { addUser(username: $username, email: $email) { username, email } }\", \
+          \"variables\": { \"username\": \"alice\", \"email\": \"alice@secret.org\" } }";
+        let client = reqwest::blocking::Client::new();
+        match client.post("http://172.18.0.3:8081/graphql")
+        // FIXME: Hardcoded service target... Use settings instead
+        // match client.post("http://users:8081/graphql")
+            .headers(construct_headers())
+            .body(data)
+            .send() {
+                Ok(res) => {
+                    println!("res: {:?}", res);
+                    // let json: serde_json::Value = res.json().unwrap();
+                    let text = res.text().unwrap();
+                    println!("res: {:?}", text);
+                    // let res = &json["data"]["users"];
+                    // let res = res.clone();
+                    // let res: Result<MultiUsersResponseBody, _> = serde_json::from_value(res);
+                    // match res {
+                    //     Ok(resp) => { world.resp = resp; }
+                    //     Err(err) => {
+                    //         println!("Could not deserialize server's response {}", err);
+                    //     }
+                    // }
+                }
+                Err(err) => {
+                    println!("Could not request users: {}", err);
+                }
+            }
+    };
+
     then "I have as many users in the database as in the response" |world, _step| {
         // Check that the outcomes to be observed have occurred
         assert_eq!(world.resp.users_count, world.users.len() as i32);

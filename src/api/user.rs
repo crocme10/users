@@ -8,7 +8,20 @@ use std::convert::TryFrom;
 use super::gql::Context;
 use crate::error;
 
-/// The response body for multiple indexes
+/// The response body for single user
+#[derive(Debug, Deserialize, Serialize, GraphQLObject)]
+#[serde(rename_all = "camelCase")]
+pub struct SingleUserResponseBody {
+    pub user: User,
+}
+
+impl From<User> for SingleUserResponseBody {
+    fn from(user: User) -> Self {
+        Self { user }
+    }
+}
+
+/// The response body for multiple users
 #[derive(Debug, Deserialize, Serialize, GraphQLObject)]
 #[serde(rename_all = "camelCase")]
 pub struct MultiUsersResponseBody {
@@ -47,4 +60,25 @@ pub async fn list_users(context: &Context) -> Result<MultiUsersResponseBody, err
         })
         .await?;
     Ok(users.into())
+}
+
+pub async fn add_user(
+    username: String,
+    email: String,
+    context: &mut Context,
+) -> Result<SingleUserResponseBody, error::Error> {
+    // In this simplified version, the database is just a hashmap of username -> email.
+    match context.users.insert(username.clone(), email.clone()) {
+        None => {
+            let user = User {
+                username,
+                email,
+                created_at: Utc::now(),
+            };
+            Ok(user.into())
+        }
+        Some(_) => Err(error::Error::MiscError {
+            msg: String::from("Duplicate Entry"),
+        }),
+    }
 }

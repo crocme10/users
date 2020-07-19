@@ -1,4 +1,4 @@
-use juniper::{EmptyMutation, EmptySubscription, FieldResult, IntoFieldError, RootNode};
+use juniper::{EmptySubscription, FieldResult, IntoFieldError, RootNode};
 use slog::Logger;
 use std::collections::HashMap;
 
@@ -26,8 +26,26 @@ impl Query {
     }
 }
 
-type Schema = RootNode<'static, Query, EmptyMutation<Context>, EmptySubscription<Context>>;
+pub struct Mutation;
+
+#[juniper::graphql_object(
+    Context = Context
+)]
+impl Mutation {
+    /// Return a list of all environments
+    async fn addUuser(
+        username: String,
+        email: String,
+        context: &Context,
+    ) -> FieldResult<user::SingleUserResponseBody> {
+        user::add_user(username, email, context)
+            .await
+            .map_err(IntoFieldError::into_field_error)
+    }
+}
+
+type Schema = RootNode<'static, Query, Mutation, EmptySubscription<Context>>;
 
 pub fn schema() -> Schema {
-    Schema::new(Query, EmptyMutation::new(), EmptySubscription::new())
+    Schema::new(Query, Mutation, EmptySubscription::new())
 }
