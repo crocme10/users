@@ -1,2 +1,3 @@
 pub mod gql;
-pub mod user;
+pub mod model;
+pub mod users;

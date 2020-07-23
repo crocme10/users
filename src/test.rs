@@ -7,7 +7,8 @@ use slog::{info, Logger};
 use std::collections::HashMap;
 use std::path::Path;
 
-use users::api::user::{MultiUsersResponseBody, User};
+use users::api::model::User;
+use users::api::users::MultiUsersResponseBody;
 use users::error;
 use users::settings::Settings;
 

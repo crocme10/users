@@ -1,13 +1,17 @@
-use juniper::{EmptySubscription, FieldResult, IntoFieldError, RootNode};
+use juniper::{EmptyMutation, EmptySubscription, FieldResult, IntoFieldError, RootNode};
 use slog::Logger;
-use std::collections::HashMap;
+// use sqlx::pool::PoolConnection;
+// use snafu::ResultExt;
+// use crate::db::model::ProvideData;
+// use crate::db::Db;
+use sqlx::postgres::PgPool;
 
-use super::user;
+use super::users;
 
 #[derive(Debug, Clone)]
 pub struct Context {
     pub logger: Logger,
-    pub users: HashMap<String, String>,
+    pub pool: PgPool,
 }
 
 impl juniper::Context for Context {}
@@ -19,33 +23,15 @@ pub struct Query;
 )]
 impl Query {
     /// Return a list of all environments
-    async fn users(&self, context: &Context) -> FieldResult<user::MultiUsersResponseBody> {
-        user::list_users(context)
+    async fn users(&self, context: &Context) -> FieldResult<users::MultiUsersResponseBody> {
+        users::list_users(context)
             .await
             .map_err(IntoFieldError::into_field_error)
     }
 }
 
-pub struct Mutation;
-
-#[juniper::graphql_object(
-    Context = Context
-)]
-impl Mutation {
-    /// Return a list of all environments
-    async fn addUuser(
-        username: String,
-        email: String,
-        context: &Context,
-    ) -> FieldResult<user::SingleUserResponseBody> {
-        user::add_user(username, email, context)
-            .await
-            .map_err(IntoFieldError::into_field_error)
-    }
-}
-
-type Schema = RootNode<'static, Query, Mutation, EmptySubscription<Context>>;
+type Schema = RootNode<'static, Query, EmptyMutation<Context>, EmptySubscription<Context>>;
 
 pub fn schema() -> Schema {
-    Schema::new(Query, Mutation, EmptySubscription::new())
+    Schema::new(Query, EmptyMutation::new(), EmptySubscription::new())
 }

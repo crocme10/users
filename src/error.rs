@@ -1,6 +1,8 @@
 use juniper::{graphql_value, FieldError, IntoFieldError};
 use snafu::Snafu;
 
+use crate::db::model::ProvideError;
+
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("Could not identify environment {}", env))]
@@ -42,6 +44,14 @@ pub enum Error {
         msg: String,
         source: serde_json::Error,
     },
+
+    #[snafu(display("DB Error: {} - {}", msg, source))]
+    #[snafu(visibility(pub))]
+    DBError { msg: String, source: sqlx::Error },
+
+    #[snafu(display("DB Error: {} - {}", msg, source))]
+    #[snafu(visibility(pub))]
+    DBProvideError { msg: String, source: ProvideError },
 }
 
 impl IntoFieldError for Error {
@@ -92,6 +102,19 @@ impl IntoFieldError for Error {
             err @ Error::JSONError { .. } => {
                 let errmsg = format!("{}", err);
                 FieldError::new("JSON Error", graphql_value!({ "internal_error": errmsg }))
+            }
+
+            err @ Error::DBError { .. } => {
+                let errmsg = format!("{}", err);
+                FieldError::new("DB Error", graphql_value!({ "internal_error": errmsg }))
+            }
+
+            err @ Error::DBProvideError { .. } => {
+                let errmsg = format!("{}", err);
+                FieldError::new(
+                    "Provide Error",
+                    graphql_value!({ "internal_error": errmsg }),
+                )
             }
         }
     }
