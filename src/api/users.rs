@@ -1,5 +1,5 @@
 use futures::TryFutureExt;
-use juniper::GraphQLObject;
+use juniper::{GraphQLInputObject, GraphQLObject};
 use serde::{Deserialize, Serialize};
 // use slog::{debug, info};
 use snafu::ResultExt;
@@ -41,6 +41,13 @@ impl From<Vec<User>> for MultiUsersResponseBody {
     }
 }
 
+/// The query body for creating a user
+#[derive(Debug, Serialize, Deserialize, GraphQLInputObject)]
+pub struct UserRequestBody {
+    pub username: String,
+    pub email: String,
+}
+
 /// Retrieve all users
 pub async fn list_users(context: &Context) -> Result<MultiUsersResponseBody, error::Error> {
     async move {
@@ -51,11 +58,11 @@ pub async fn list_users(context: &Context) -> Result<MultiUsersResponseBody, err
             .and_then(Connection::begin)
             .await
             .context(error::DBError {
-                msg: "could not retrieve indexes",
+                msg: "could not initiate transaction",
             })?;
 
         let entities = tx.get_all_users().await.context(error::DBProvideError {
-            msg: "Could not get all them indexes",
+            msg: "Could not get all them users",
         })?;
 
         let users = entities
@@ -64,10 +71,46 @@ pub async fn list_users(context: &Context) -> Result<MultiUsersResponseBody, err
             .collect::<Vec<_>>();
 
         tx.commit().await.context(error::DBError {
-            msg: "could not retrieve indexes",
+            msg: "could not commit transaction",
         })?;
 
         Ok(MultiUsersResponseBody::from(users))
+    }
+    .await
+}
+
+/// Something
+pub async fn add_user(
+    user_request: UserRequestBody,
+    context: &Context,
+) -> Result<SingleUserResponseBody, error::Error> {
+    async move {
+        let UserRequestBody { username, email } = user_request;
+
+        let state = &context.pool;
+
+        let mut tx = state
+            .conn()
+            .and_then(Connection::begin)
+            .await
+            .context(error::DBError {
+                msg: "could not initiate transaction",
+            })?;
+
+        let entity = tx
+            .create_user(&username, &email)
+            .await
+            .context(error::DBProvideError {
+                msg: "Could not create user",
+            })?;
+
+        let user = User::from(entity);
+
+        tx.commit().await.context(error::DBError {
+            msg: "could not retrieve indexes",
+        })?;
+
+        Ok(SingleUserResponseBody::from(user))
     }
     .await
 }

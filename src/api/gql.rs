@@ -30,6 +30,22 @@ impl Query {
     }
 }
 
+pub struct Mutation;
+
+#[juniper::graphql_object(
+    Context = Context
+)]
+impl Mutation {
+    async fn create_user(
+        &self,
+        user: users::UserRequestBody,
+        context: &Context,
+    ) -> FieldResult<users::SingleUserResponseBody> {
+        users::add_user(user, context)
+            .await
+            .map_err(IntoFieldError::into_field_error)
+    }
+}
 type Schema = RootNode<'static, Query, EmptyMutation<Context>, EmptySubscription<Context>>;
 
 pub fn schema() -> Schema {
