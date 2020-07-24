@@ -9,7 +9,7 @@ pub enum Error {
     #[snafu(visibility(pub))]
     Environment { env: String },
 
-    #[snafu(display("Config Error: {}", msg))]
+    #[snafu(display("Config Error: {} [{}]", msg, source))]
     #[snafu(visibility(pub))]
     ConfigError {
         msg: String,

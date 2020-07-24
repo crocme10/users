@@ -1,6 +1,6 @@
 debug = true
-testing = true
-mode = "testing"
+testing = true    # We need to overwrite the default
+mode = "testing"  # This can probably be gone
 
 [database]
 echo = true

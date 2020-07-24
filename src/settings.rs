@@ -26,6 +26,8 @@ pub struct Settings {
     pub service: Service,
 }
 
+// TODO Parameterize the config directory
+
 impl Settings {
     pub fn new(matches: &ArgMatches) -> Result<Self, error::Error> {
         let mut s = Config::new();
@@ -40,9 +42,9 @@ impl Settings {
         // Default to 'development' env
         // Note that this file is _optional_
         let env = env::var("RUN_MODE").unwrap_or("development".into());
-        s.merge(File::with_name(&format!("config/{}", env)).required(false))
+        s.merge(File::with_name(&format!("config/{}", env)).required(true))
             .context(error::ConfigError {
-                msg: String::from("Could not merge default configuration"),
+                msg: format!("Could not merge {} configuration", env),
             })?;
 
         // Add in a local configuration file
@@ -73,6 +75,7 @@ impl Settings {
             msg: String::from("Could not set database url from environment variable"),
         })?;
 
+        // Finally we override values with what has been given at the command line
         if let Some(addr) = matches.value_of("address") {
             s.set("service.host", addr).context(error::ConfigError {
                 msg: String::from("Could not set service host from CLI argument"),
