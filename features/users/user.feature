@@ -1,11 +1,13 @@
 Feature: Example feature
 
-  Scenario: An example scenario
-    Given I have seeded the user database
+  Scenario: Initial empty scenario
     When I list users
-    Then I have as many users in the database as in the response
+    Then I have no user in the response
 
   Scenario: Adding a new user
-    Given I have seeded the user database
-    When I add a new user
-    Then I can verify the user has been succesfully added
+    When I add alice
+    Then I can verify the alice's details in the response
+
+  Scenario: Adding a duplicate user
+    When I add alice
+    Then I get a duplicate username error

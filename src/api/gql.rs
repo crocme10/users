@@ -1,4 +1,4 @@
-use juniper::{EmptyMutation, EmptySubscription, FieldResult, IntoFieldError, RootNode};
+use juniper::{EmptySubscription, FieldResult, IntoFieldError, RootNode};
 use slog::Logger;
 // use sqlx::pool::PoolConnection;
 // use snafu::ResultExt;
@@ -36,7 +36,7 @@ pub struct Mutation;
     Context = Context
 )]
 impl Mutation {
-    async fn create_user(
+    async fn add_user(
         &self,
         user: users::UserRequestBody,
         context: &Context,
@@ -46,8 +46,8 @@ impl Mutation {
             .map_err(IntoFieldError::into_field_error)
     }
 }
-type Schema = RootNode<'static, Query, EmptyMutation<Context>, EmptySubscription<Context>>;
+type Schema = RootNode<'static, Query, Mutation, EmptySubscription<Context>>;
 
 pub fn schema() -> Schema {
-    Schema::new(Query, EmptyMutation::new(), EmptySubscription::new())
+    Schema::new(Query, Mutation, EmptySubscription::new())
 }

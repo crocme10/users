@@ -27,7 +27,11 @@ pub async fn run<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), err
     run_server(settings, clogger, pool).await
 }
 
-async fn run_server(settings: Settings, logger: Logger, pool: PgPool) -> Result<(), error::Error> {
+pub async fn run_server(
+    settings: Settings,
+    logger: Logger,
+    pool: PgPool,
+) -> Result<(), error::Error> {
     let logger1 = logger.clone();
     let pool1 = pool.clone();
     let state = warp::any().map(move || gql::Context {

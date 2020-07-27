@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use snafu::Snafu;
+use std::convert::TryFrom;
 use uuid::Uuid;
 
 pub type EntityId = Uuid;
@@ -10,6 +11,7 @@ pub struct UserEntity {
     pub id: EntityId,
     pub username: String,
     pub email: String,
+    pub active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -54,32 +56,21 @@ impl From<sqlx::Error> for ProvideError {
     ///
     /// FIXME(RFC): I have no idea if this is sane
     fn from(e: sqlx::Error) -> Self {
-        // TODO See if we can we actually do some logging here?
-        // log::debug!("sqlx returned err -- {:#?}", &e);
         match e {
             sqlx::Error::RowNotFound => ProvideError::NotFound,
             sqlx::Error::Database(db_err) => {
-                #[cfg(feature = "postgres")]
-                {
-                    if let Some(pg_err) = db_err.try_downcast_ref::<sqlx::postgres::PgError>() {
-                        if let Ok(provide_err) = ProvideError::try_from(pg_err) {
-                            return provide_err;
+                if let Some(pg_err) = db_err.try_downcast_ref::<sqlx::postgres::PgError>() {
+                    if let Ok(provide_err) = ProvideError::try_from(pg_err) {
+                        return provide_err;
+                    } else {
+                        ProvideError::UnHandledError {
+                            source: sqlx::Error::Database(db_err),
                         }
                     }
-                }
-
-                #[cfg(feature = "sqlite")]
-                {
-                    if let Some(sqlite_err) = db_err.try_downcast_ref::<sqlx::sqlite::SqliteError>()
-                    {
-                        if let Ok(provide_err) = ProvideError::try_from(sqlite_err) {
-                            return provide_err;
-                        }
+                } else {
+                    ProvideError::UnHandledError {
+                        source: sqlx::Error::Database(db_err),
                     }
-                }
-
-                ProvideError::UnHandledError {
-                    source: sqlx::Error::Database(db_err),
                 }
             }
             _ => ProvideError::UnHandledError { source: e },

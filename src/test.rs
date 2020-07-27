@@ -1,34 +1,48 @@
 use clap::ArgMatches;
 use cucumber::{
-    after, before, steps, CucumberBuilder, DefaultOutput, OutputVisitor, Scenario, Steps, World,
+    after, before, steps, CucumberBuilder, DefaultOutput, OutputVisitor, Scenario, Steps,
 };
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE};
 use slog::{info, Logger};
-use std::collections::HashMap;
+use slog::{o, Drain};
+use std::env;
 use std::path::Path;
+use std::thread;
 
-use users::api::model::User;
-use users::api::users::MultiUsersResponseBody;
+use super::server::run_server;
+// use users::api::model::User;
+use users::api::users::{MultiUsersResponseBody, SingleUserResponseBody};
+use users::db::pg;
 use users::error;
 use users::settings::Settings;
 
 pub async fn test<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), error::Error> {
     let settings = Settings::new(matches)?;
-    // When running tests.... we should be in testing mode!
-    if !settings.testing {
-        return Err(error::Error::MiscError {
-            msg: String::from(
-                "When running tests, you should be in testing mode (Probably set RUN_MODE=test)",
-            ),
-        });
-    }
 
-    if settings.debug {
-        info!(logger, "Database URL: {}", settings.database.url);
+    // FIXME There is work that should be done here to terminate the service
+    // when we are done with testing.
+    if settings.testing {
+        info!(logger, "Launching testing service");
+        let handle = tokio::runtime::Handle::current();
+        let th = thread::spawn(move || {
+            handle.spawn(async {
+                let decorator = slog_term::TermDecorator::new().build();
+                let drain = slog_term::FullFormat::new(decorator).build().fuse();
+                let drain = slog_async::Async::new(drain).build().fuse();
+                let logger = slog::Logger::root(drain, o!());
+                let db_url =
+                    env::var("DATABASE_TEST_URL").expect("DATABASE_TEST_URL should be set");
+                let pool = pg::connect(&db_url)
+                    .await
+                    .expect("Cannot obtain database connection for testing");
+                info!(logger, "Running test service");
+                run_server(settings, logger, pool).await;
+            });
+        });
+        //th.join().expect("Waiting for test execution");
     }
 
     test_users();
-
     Ok(())
 }
 
@@ -66,9 +80,9 @@ fn get_cucumber_instance() -> CucumberBuilder<MyWorld, DefaultOutput> {
 }
 
 pub struct MyWorld {
-    // You can use this struct for mutable context in scenarios.
-    users: HashMap<String, String>,
-    resp: MultiUsersResponseBody,
+    multi_resp: Option<MultiUsersResponseBody>,
+    single_resp: Option<SingleUserResponseBody>,
+    error: Option<String>,
 }
 
 impl cucumber::World for MyWorld {}
@@ -77,11 +91,9 @@ impl std::default::Default for MyWorld {
     fn default() -> MyWorld {
         // This function is called every time a new scenario is started
         MyWorld {
-            users: HashMap::new(),
-            resp: MultiUsersResponseBody {
-                users: Vec::new(),
-                users_count: 0,
-            },
+            multi_resp: None,
+            single_resp: None,
+            error: None,
         }
     }
 }
@@ -95,18 +107,13 @@ fn construct_headers() -> HeaderMap {
 
 steps!(MyWorld => {
     given "I have seeded the user database" |world, _step| {
-        // Here we assume the service has been seeded with 'users.json'
-        let users = std::fs::read_to_string("users.json").expect("No users.json");
-        let users: Vec<User> = serde_json::from_str(&users).expect("Cannot deserialize users.json");
-        world.users = users.into_iter().map(|u| (u.username, u.email)).collect();
     };
 
     when "I list users" |world, _step| {
         let data = "{ \"query\": \"{ users { users { username, email }, usersCount } }\" }";
         let client = reqwest::blocking::Client::new();
-        // match client.post("http://172.18.0.3:8081/graphql")
-        // FIXME: Hardcoded service target... Use settings instead
-        match client.post("http://users:8081/graphql")
+        let url = get_service_url();
+        match client.post(&url)
             .headers(construct_headers())
             .body(data)
             .send() {
@@ -116,7 +123,7 @@ steps!(MyWorld => {
                     let res = res.clone();
                     let res: Result<MultiUsersResponseBody, _> = serde_json::from_value(res);
                     match res {
-                        Ok(resp) => { world.resp = resp; }
+                        Ok(resp) => { world.multi_resp = Some(resp); }
                         Err(err) => {
                             println!("Could not deserialize server's response {}", err);
                         }
@@ -128,30 +135,35 @@ steps!(MyWorld => {
             }
     };
 
-    when "I add a new user" |_world, _step| {
-        let data = "{ \"query\": \"mutation addUser($username: String!, $email: String!) { addUser(username: $username, email: $email) { username, email } }\", \
-          \"variables\": { \"username\": \"alice\", \"email\": \"alice@secret.org\" } }";
+    when "I add alice" |world, _step| {
+        let data = "{ \
+          \"query\": \"mutation addUser($user: UserRequestBody!) { \
+              addUser(user: $user) { user { id, username, email, active, createdAt, updatedAt } } \
+          }\", \
+          \"variables\": { \
+              \"user\": { \
+                  \"username\": \"alice\", \
+                  \"email\": \"alice@secret.org\" \
+              } \
+          } \
+        }";
         let client = reqwest::blocking::Client::new();
-        match client.post("http://172.18.0.3:8081/graphql")
-        // FIXME: Hardcoded service target... Use settings instead
-        // match client.post("http://users:8081/graphql")
+        let url = get_service_url();
+        match client.post(&url)
             .headers(construct_headers())
             .body(data)
             .send() {
                 Ok(res) => {
-                    println!("res: {:?}", res);
-                    // let json: serde_json::Value = res.json().unwrap();
-                    let text = res.text().unwrap();
-                    println!("res: {:?}", text);
-                    // let res = &json["data"]["users"];
-                    // let res = res.clone();
-                    // let res: Result<MultiUsersResponseBody, _> = serde_json::from_value(res);
-                    // match res {
-                    //     Ok(resp) => { world.resp = resp; }
-                    //     Err(err) => {
-                    //         println!("Could not deserialize server's response {}", err);
-                    //     }
-                    // }
+                    let json: serde_json::Value = res.json().unwrap();
+                    let res = &json["data"]["addUser"];
+                    let value = res.clone();
+                    let resp: Result<SingleUserResponseBody, _> = serde_json::from_value(value);
+                    match resp {
+                        Ok(resp) => { world.single_resp = Some(resp); }
+                        Err(_err) => {
+                            world.error = Some(format!("{}", json));
+                        }
+                    }
                 }
                 Err(err) => {
                     println!("Could not request users: {}", err);
@@ -159,11 +171,20 @@ steps!(MyWorld => {
             }
     };
 
-    then "I have as many users in the database as in the response" |world, _step| {
-        // Check that the outcomes to be observed have occurred
-        assert_eq!(world.resp.users_count, world.users.len() as i32);
+    then "I have no user in the response" |world, _step| {
+        let resp = world.multi_resp.as_ref().unwrap();
+        assert_eq!(resp.users_count,0);
     };
 
+    then "I can verify the alice's details in the response" |world, _step| {
+        let resp = world.single_resp.as_ref().unwrap();
+        assert_eq!(resp.user.username, "alice");
+    };
+
+    then "I get a duplicate username error" |world, _step| {
+        let err = world.error.as_ref().unwrap();
+        assert_ne!(err.find("Operation violates uniqueness constraint: Key (username)"), None);
+    };
 
 });
 
@@ -178,4 +199,38 @@ after!(an_after_fn => |_scenario| {
 });
 
 // A setup function to be called before everything else
-pub fn setup() {}
+pub fn setup() {
+    let decorator = slog_term::TermDecorator::new().build();
+    let drain = slog_term::FullFormat::new(decorator).build().fuse();
+    let drain = slog_async::Async::new(drain).build().fuse();
+    let logger = slog::Logger::root(drain, o!());
+    info!(logger, "Test Setup");
+    // FIXME
+    let db_url = get_database_url();
+    let handle = tokio::runtime::Handle::current();
+    let th = std::thread::spawn(move || {
+        handle.block_on(async {
+            pg::init_db(&db_url, logger)
+                .await
+                .expect("Could not initialize test database");
+        })
+    });
+    th.join()
+        .expect("Waiting for DB Initialization to complete");
+}
+
+fn get_service_url() -> String {
+    let mode = env::var("RUN_MODE").expect("RUN_MODE should be set");
+    match mode.as_str() {
+        "testing" => String::from("http://localhost:8081/graphql"),
+        _ => String::from("http://users:8081/graphql"),
+    }
+}
+
+fn get_database_url() -> String {
+    let mode = env::var("RUN_MODE").expect("RUN_MODE should be set");
+    match mode.as_str() {
+        "testing" => env::var("DATABASE_TEST_URL").expect("DATABASE_TEST_URL should be set"),
+        _ => env::var("DATABASE_URL").expect("DATABASE_URL should be set"),
+    }
+}

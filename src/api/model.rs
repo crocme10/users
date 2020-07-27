@@ -12,6 +12,7 @@ pub struct User {
     pub id: EntityId,
     pub username: String,
     pub email: String,
+    pub active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -22,6 +23,7 @@ impl From<UserEntity> for User {
             id,
             username,
             email,
+            active,
             created_at,
             updated_at,
             ..
@@ -31,6 +33,7 @@ impl From<UserEntity> for User {
             id,
             username,
             email,
+            active,
             created_at,
             updated_at,
         }
