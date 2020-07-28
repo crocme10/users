@@ -10,11 +10,12 @@ use std::path::Path;
 use std::thread;
 
 use super::server::run_server;
-// use users::api::model::User;
+use users::api::client::blocking::list_users;
 use users::api::users::{MultiUsersResponseBody, SingleUserResponseBody};
 use users::db::pg;
 use users::error;
 use users::settings::Settings;
+use users::utils::{construct_headers, get_database_url, get_service_url};
 
 pub async fn test<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), error::Error> {
     let settings = Settings::new(matches)?;
@@ -98,41 +99,17 @@ impl std::default::Default for MyWorld {
     }
 }
 
-fn construct_headers() -> HeaderMap {
-    let mut headers = HeaderMap::new();
-    headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
-    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-    headers
-}
-
 steps!(MyWorld => {
     given "I have seeded the user database" |world, _step| {
     };
 
     when "I list users" |world, _step| {
-        let data = "{ \"query\": \"{ users { users { username, email }, usersCount } }\" }";
-        let client = reqwest::blocking::Client::new();
-        let url = get_service_url();
-        match client.post(&url)
-            .headers(construct_headers())
-            .body(data)
-            .send() {
-                Ok(res) => {
-                    let json: serde_json::Value = res.json().unwrap();
-                    let res = &json["data"]["users"];
-                    let res = res.clone();
-                    let res: Result<MultiUsersResponseBody, _> = serde_json::from_value(res);
-                    match res {
-                        Ok(resp) => { world.multi_resp = Some(resp); }
-                        Err(err) => {
-                            println!("Could not deserialize server's response {}", err);
-                        }
-                    }
-                }
-                Err(err) => {
-                    println!("Could not request users: {}", err);
-                }
+        match list_users() {
+            Ok(resp) => { world.multi_resp = Some(resp); }
+            Err(err) => {
+                println!("Could not deserialize server's response {}", err);
             }
+        }
     };
 
     when "I add alice" |world, _step| {
@@ -178,7 +155,8 @@ steps!(MyWorld => {
 
     then "I can verify the alice's details in the response" |world, _step| {
         let resp = world.single_resp.as_ref().unwrap();
-        assert_eq!(resp.user.username, "alice");
+        let user = resp.user.as_ref().unwrap();
+        assert_eq!(user.username, "alice");
     };
 
     then "I get a duplicate username error" |world, _step| {
@@ -217,20 +195,4 @@ pub fn setup() {
     });
     th.join()
         .expect("Waiting for DB Initialization to complete");
-}
-
-fn get_service_url() -> String {
-    let mode = env::var("RUN_MODE").expect("RUN_MODE should be set");
-    match mode.as_str() {
-        "testing" => String::from("http://localhost:8081/graphql"),
-        _ => String::from("http://users:8081/graphql"),
-    }
-}
-
-fn get_database_url() -> String {
-    let mode = env::var("RUN_MODE").expect("RUN_MODE should be set");
-    match mode.as_str() {
-        "testing" => env::var("DATABASE_TEST_URL").expect("DATABASE_TEST_URL should be set"),
-        _ => env::var("DATABASE_URL").expect("DATABASE_URL should be set"),
-    }
 }

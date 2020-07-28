@@ -11,3 +11,11 @@ Feature: Example feature
   Scenario: Adding a duplicate user
     When I add alice
     Then I get a duplicate username error
+
+  Scenario: Adding a second user
+    When I add bob
+    Then I get two users
+
+  Scenario: Searching a user by username
+    When I search for bob
+    Then I can find 

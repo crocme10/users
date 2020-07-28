@@ -22,9 +22,20 @@ pub struct Query;
     Context = Context
 )]
 impl Query {
-    /// Return a list of all environments
+    /// Returns a list of users
     async fn users(&self, context: &Context) -> FieldResult<users::MultiUsersResponseBody> {
         users::list_users(context)
+            .await
+            .map_err(IntoFieldError::into_field_error)
+    }
+
+    /// Find a user by username
+    async fn userByUsername(
+        &self,
+        username: String,
+        context: &Context,
+    ) -> FieldResult<users::SingleUserResponseBody> {
+        users::find_user_by_username(context, &username)
             .await
             .map_err(IntoFieldError::into_field_error)
     }

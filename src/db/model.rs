@@ -21,6 +21,8 @@ pub trait ProvideData {
     async fn create_user(&mut self, username: &str, email: &str) -> ProvideResult<UserEntity>;
 
     async fn get_all_users(&mut self) -> ProvideResult<Vec<UserEntity>>;
+
+    async fn get_user_by_username(&mut self, username: &str) -> ProvideResult<UserEntity>;
 }
 
 pub type ProvideResult<T> = Result<T, ProvideError>;

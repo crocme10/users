@@ -49,9 +49,13 @@ pub enum Error {
     #[snafu(visibility(pub))]
     DBError { msg: String, source: sqlx::Error },
 
-    #[snafu(display("DB Error: {} - {}", msg, source))]
+    #[snafu(display("DB Provide Error: {} - {}", msg, source))]
     #[snafu(visibility(pub))]
     DBProvideError { msg: String, source: ProvideError },
+
+    #[snafu(display("Reqwest Error: {} - {}", msg, source))]
+    #[snafu(visibility(pub))]
+    ReqwestError { msg: String, source: reqwest::Error },
 }
 
 impl IntoFieldError for Error {
@@ -113,6 +117,14 @@ impl IntoFieldError for Error {
                 let errmsg = format!("{}", err);
                 FieldError::new(
                     "Provide Error",
+                    graphql_value!({ "internal_error": errmsg }),
+                )
+            }
+
+            err @ Error::ReqwestError { .. } => {
+                let errmsg = format!("{}", err);
+                FieldError::new(
+                    "Reqwest Error",
                     graphql_value!({ "internal_error": errmsg }),
                 )
             }

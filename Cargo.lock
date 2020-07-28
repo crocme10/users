@@ -2126,6 +2126,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7f5aed652511f5c9123cf2afbe9c244c29db6effa2abb05c866e965c82405ce"
 dependencies = [
  "doc-comment",
+ "futures-core",
+ "pin-project",
  "snafu-derive",
 ]
 

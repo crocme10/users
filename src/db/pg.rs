@@ -139,6 +139,26 @@ ORDER BY created_at
 
         Ok(users)
     }
+
+    async fn get_user_by_username(
+        &mut self,
+        username: &str,
+    ) -> model::ProvideResult<model::UserEntity> {
+        let user: UserEntity = sqlx::query_as(
+            r#"
+SELECT *
+FROM main.users
+WHERE username = $1
+            "#,
+        )
+        .bind(username)
+        .fetch_one(self)
+        .await?;
+
+        let user = model::UserEntity::from(user);
+
+        Ok(user)
+    }
 }
 
 pub async fn init_db(conn_str: &str, logger: Logger) -> Result<(), error::Error> {
