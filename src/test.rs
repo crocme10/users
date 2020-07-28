@@ -2,7 +2,6 @@ use clap::ArgMatches;
 use cucumber::{
     after, before, steps, CucumberBuilder, DefaultOutput, OutputVisitor, Scenario, Steps,
 };
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE};
 use slog::{info, Logger};
 use slog::{o, Drain};
 use std::env;
@@ -10,8 +9,8 @@ use std::path::Path;
 use std::thread;
 
 use super::server::run_server;
-use users::api::client::blocking::list_users;
-use users::api::users::{MultiUsersResponseBody, SingleUserResponseBody};
+use users::api::client::blocking::{add_user, list_users};
+use users::api::users::{MultiUsersResponseBody, SingleUserResponseBody, UserRequestBody};
 use users::db::pg;
 use users::error;
 use users::settings::Settings;
@@ -25,7 +24,7 @@ pub async fn test<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), er
     if settings.testing {
         info!(logger, "Launching testing service");
         let handle = tokio::runtime::Handle::current();
-        let th = thread::spawn(move || {
+        thread::spawn(move || {
             handle.spawn(async {
                 let decorator = slog_term::TermDecorator::new().build();
                 let drain = slog_term::FullFormat::new(decorator).build().fuse();
@@ -113,39 +112,14 @@ steps!(MyWorld => {
     };
 
     when "I add alice" |world, _step| {
-        let data = "{ \
-          \"query\": \"mutation addUser($user: UserRequestBody!) { \
-              addUser(user: $user) { user { id, username, email, active, createdAt, updatedAt } } \
-          }\", \
-          \"variables\": { \
-              \"user\": { \
-                  \"username\": \"alice\", \
-                  \"email\": \"alice@secret.org\" \
-              } \
-          } \
-        }";
-        let client = reqwest::blocking::Client::new();
-        let url = get_service_url();
-        match client.post(&url)
-            .headers(construct_headers())
-            .body(data)
-            .send() {
-                Ok(res) => {
-                    let json: serde_json::Value = res.json().unwrap();
-                    let res = &json["data"]["addUser"];
-                    let value = res.clone();
-                    let resp: Result<SingleUserResponseBody, _> = serde_json::from_value(value);
-                    match resp {
-                        Ok(resp) => { world.single_resp = Some(resp); }
-                        Err(_err) => {
-                            world.error = Some(format!("{}", json));
-                        }
-                    }
-                }
-                Err(err) => {
-                    println!("Could not request users: {}", err);
-                }
-            }
+        let user = UserRequestBody {
+            username: String::from("alice"),
+            email: String::from("alice@secret.org")
+        };
+        match add_user(user) {
+            Ok(resp) => { world.single_resp = Some(resp); }
+            Err(err) => { world.error = Some(format!("{}", err)); }
+        }
     };
 
     then "I have no user in the response" |world, _step| {
