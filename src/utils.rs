@@ -1,13 +1,6 @@
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE};
 use std::env;
 
-// use super::server::run_server;
-// // use users::api::model::User;
-// use users::api::users::{MultiUsersResponseBody, SingleUserResponseBody};
-// use users::db::pg;
-// use users::error;
-// use users::settings::Settings;
-
 pub fn construct_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert(ACCEPT, HeaderValue::from_static("application/json"));

@@ -164,7 +164,10 @@ WHERE username = $1
 pub async fn init_db(conn_str: &str, logger: Logger) -> Result<(), error::Error> {
     info!(logger, "Initializing  DB @ {}", conn_str);
     // This is essentially running 'psql $DATABASE_URL < db/init.sql', and logging the
-    // psql output
+    // psql output.
+    // FIXME This relies on a command psql, which is not desibable.
+    // We could alternatively try to use sqlx...
+    // There may be a tool for doing migrations.
     let mut cmd = Command::new("psql");
     cmd.arg(conn_str);
     cmd.stdout(Stdio::piped());
@@ -185,9 +188,8 @@ pub async fn init_db(conn_str: &str, logger: Logger) -> Result<(), error::Error>
     // make progress on its own while we await for any output.
     tokio::spawn(async {
         // FIXME Need to do something about logging this and returning an error.
-        let status = child.await.expect("child process encountered an error");
-
-        println!("child status was: {}", status);
+        let _status = child.await.expect("child process encountered an error");
+        // println!("child status was: {}", status);
     });
     info!(logger, "Spawned init.sql");
 

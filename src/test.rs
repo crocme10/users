@@ -9,12 +9,12 @@ use std::path::Path;
 use std::thread;
 
 use super::server::run_server;
-use users::api::client::blocking::{add_user, list_users};
+use users::api::client::blocking::{add_user, find_user_by_username, list_users};
 use users::api::users::{MultiUsersResponseBody, SingleUserResponseBody, UserRequestBody};
 use users::db::pg;
 use users::error;
 use users::settings::Settings;
-use users::utils::{construct_headers, get_database_url, get_service_url};
+use users::utils::get_database_url;
 
 pub async fn test<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), error::Error> {
     let settings = Settings::new(matches)?;
@@ -99,7 +99,19 @@ impl std::default::Default for MyWorld {
 }
 
 steps!(MyWorld => {
-    given "I have seeded the user database" |world, _step| {
+    given "I have initialized the user database" |_world, _step| {
+        // FIXME Not doing anything, that's a smell....
+    };
+
+    given regex r"I have a user with username (.*) and email (.*)$" |world, matches, _step| {
+        let user = UserRequestBody {
+            username: matches[1].clone(),
+            email: matches[2].clone()
+        };
+        match add_user(user) {
+            Ok(resp) => { world.single_resp = Some(resp); }
+            Err(err) => { world.error = Some(format!("{}", err)); }
+        }
     };
 
     when "I list users" |world, _step| {
@@ -111,10 +123,10 @@ steps!(MyWorld => {
         }
     };
 
-    when "I add alice" |world, _step| {
+    when regex r"I add a new user with username (.*) and email (.*)$" |world, matches, _step| {
         let user = UserRequestBody {
-            username: String::from("alice"),
-            email: String::from("alice@secret.org")
+            username: matches[1].clone(),
+            email: matches[2].clone()
         };
         match add_user(user) {
             Ok(resp) => { world.single_resp = Some(resp); }
@@ -122,15 +134,25 @@ steps!(MyWorld => {
         }
     };
 
-    then "I have no user in the response" |world, _step| {
-        let resp = world.multi_resp.as_ref().unwrap();
-        assert_eq!(resp.users_count,0);
+    when regex r"I search for a user with username (.*)$" |world, matches, _step| {
+        let username = matches[1].clone();
+        match find_user_by_username(username) {
+            Ok(resp) => { world.single_resp = Some(resp); }
+            Err(err) => { world.error = Some(format!("{}", err)); }
+        }
     };
 
-    then "I can verify the alice's details in the response" |world, _step| {
+    then regex r"the response's users count is (.*)$" |world, matches, _step| {
+        let count = matches[1].parse::<i32>().unwrap();
+        let resp = world.multi_resp.as_ref().unwrap();
+        assert_eq!(resp.users_count,count);
+    };
+
+    then regex r"I can verify the username (.*) in the response" |world, matches, _step| {
+        let username = matches[1].clone();
         let resp = world.single_resp.as_ref().unwrap();
         let user = resp.user.as_ref().unwrap();
-        assert_eq!(user.username, "alice");
+        assert_eq!(user.username, username);
     };
 
     then "I get a duplicate username error" |world, _step| {
@@ -142,7 +164,7 @@ steps!(MyWorld => {
 
 // Declares a before handler function named `a_before_fn`
 before!(a_before_fn => |_scenario| {
-
+    setup()
 });
 
 // Declares an after handler function named `an_after_fn`
@@ -152,11 +174,7 @@ after!(an_after_fn => |_scenario| {
 
 // A setup function to be called before everything else
 pub fn setup() {
-    let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::FullFormat::new(decorator).build().fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
-    let logger = slog::Logger::root(drain, o!());
-    info!(logger, "Test Setup");
+    let logger = slog::Logger::root(slog::Discard, o!());
     // FIXME
     let db_url = get_database_url();
     let handle = tokio::runtime::Handle::current();

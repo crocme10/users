@@ -1,7 +1,7 @@
 SET CLIENT_MIN_MESSAGES TO WARNING;
 SET CLIENT_ENCODING = 'UTF8';
 DROP SCHEMA IF EXISTS main CASCADE;
-SET CLIENT_MIN_MESSAGES TO DEBUG;
+SET CLIENT_MIN_MESSAGES TO INFO;
 SET CLIENT_ENCODING = 'UTF8';
 -- We create everything within a main schema, so that we have
 -- an easy mean to setup / tear down by creating and dropping
