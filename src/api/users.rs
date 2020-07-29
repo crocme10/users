@@ -1,7 +1,7 @@
 use futures::TryFutureExt;
 use juniper::{GraphQLInputObject, GraphQLObject};
 use serde::{Deserialize, Serialize};
-// use slog::{debug, info};
+use slog::info;
 use snafu::ResultExt;
 use sqlx::Connection;
 use std::convert::TryFrom;
@@ -138,15 +138,26 @@ pub async fn find_user_by_username(
             .await
             .context(error::DBProvideError {
                 msg: "Could not get user by username",
-            })?;
+            });
 
-        let user = User::from(entity);
-
-        tx.commit().await.context(error::DBError {
-            msg: "could not commit transaction",
-        })?;
-
-        Ok(SingleUserResponseBody::from(user))
+        match entity {
+            Err(err) => {
+                info!(context.logger, "DB Provide Error: {:?}", err);
+                Err(err)
+            }
+            Ok(entity) => {
+                tx.commit().await.context(error::DBError {
+                    msg: "could not commit transaction",
+                })?;
+                match entity {
+                    None => Ok(SingleUserResponseBody { user: None }),
+                    Some(entity) => {
+                        let user = User::from(entity);
+                        Ok(SingleUserResponseBody::from(user))
+                    }
+                }
+            }
+        }
     }
     .await
 }

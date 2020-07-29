@@ -143,8 +143,8 @@ ORDER BY created_at
     async fn get_user_by_username(
         &mut self,
         username: &str,
-    ) -> model::ProvideResult<model::UserEntity> {
-        let user: UserEntity = sqlx::query_as(
+    ) -> model::ProvideResult<Option<model::UserEntity>> {
+        let user: Option<UserEntity> = sqlx::query_as(
             r#"
 SELECT *
 FROM main.users
@@ -152,12 +152,16 @@ WHERE username = $1
             "#,
         )
         .bind(username)
-        .fetch_one(self)
+        .fetch_optional(self)
         .await?;
 
-        let user = model::UserEntity::from(user);
-
-        Ok(user)
+        match user {
+            None => Ok(None),
+            Some(user) => {
+                let user = model::UserEntity::from(user);
+                Ok(Some(user))
+            }
+        }
     }
 }
 

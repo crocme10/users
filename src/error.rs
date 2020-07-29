@@ -23,7 +23,7 @@ pub enum Error {
         source: std::env::VarError,
     },
 
-    #[snafu(display("lack of imagination: {}", msg))]
+    #[snafu(display("Miscellaneous Error: {}", msg))]
     #[snafu(visibility(pub))]
     MiscError { msg: String },
 

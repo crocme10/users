@@ -1,9 +1,5 @@
 use juniper::{EmptySubscription, FieldResult, IntoFieldError, RootNode};
 use slog::Logger;
-// use sqlx::pool::PoolConnection;
-// use snafu::ResultExt;
-// use crate::db::model::ProvideData;
-// use crate::db::Db;
 use sqlx::postgres::PgPool;
 
 use super::users;
@@ -30,7 +26,7 @@ impl Query {
     }
 
     /// Find a user by username
-    async fn userByUsername(
+    async fn findUserByUsername(
         &self,
         username: String,
         context: &Context,

@@ -7,6 +7,7 @@ use uuid::Uuid;
 pub type EntityId = Uuid;
 
 /// A user registered with the application (ie, stored in DB)
+#[derive(Debug, Clone)]
 pub struct UserEntity {
     pub id: EntityId,
     pub username: String,
@@ -22,7 +23,7 @@ pub trait ProvideData {
 
     async fn get_all_users(&mut self) -> ProvideResult<Vec<UserEntity>>;
 
-    async fn get_user_by_username(&mut self, username: &str) -> ProvideResult<UserEntity>;
+    async fn get_user_by_username(&mut self, username: &str) -> ProvideResult<Option<UserEntity>>;
 }
 
 pub type ProvideResult<T> = Result<T, ProvideError>;

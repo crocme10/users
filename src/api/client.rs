@@ -94,7 +94,7 @@ pub async fn find_user_by_username(
     let url = get_service_url();
     let client = reqwest::Client::new();
     client
-        .get(&url)
+        .post(&url)
         .headers(construct_headers())
         .body(data)
         .send()
@@ -102,6 +102,15 @@ pub async fn find_user_by_username(
             msg: String::from("Could not request SingleUserResponseBody"),
         })
         .and_then(|resp| {
+            // async move {
+            //     let txt = resp.text().await.unwrap();
+            //     println!("text: {}", txt);
+            //     let err: Result<SingleUserResponseBody, _> = Err(error::Error::MiscError {
+            //         msg: format!("{}", "foo"),
+            //     });
+            //     err
+            // }
+
             resp.json::<serde_json::Value>()
                 .context(error::ReqwestError {
                     msg: String::from("Could not deserialize MultiUsersResponseBody"),

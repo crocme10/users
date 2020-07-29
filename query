@@ -3,8 +3,9 @@
 endpoint="http://$1:$2/graphql"
 
 curl_cmd="curl -X POST -H 'Content-Type: application/json'"
-curl_cmd="${curl_cmd} --data '{ \"query\": \"{ users { users { username, email, createdAt } } }\" }'"
-curl_cmd="${curl_cmd} ${endpoint}"
+curl_cmd="${curl_cmd} --data '{ \"query\":  \"query findUser(\$username: String!) { findUserByUsername(username: \$username) { user { id, username, email, active, createdAt, updatedAt } } }\" , \"variables\": { \"username\": \"eve\" } }'"
 
+curl_cmd="${curl_cmd} ${endpoint}"
+echo ${curl_cmd}
 resp=$(eval ${curl_cmd})
 echo "${resp}" | jq '.'

@@ -2,8 +2,10 @@ use clap::ArgMatches;
 use cucumber::{
     after, before, steps, CucumberBuilder, DefaultOutput, OutputVisitor, Scenario, Steps,
 };
+use futures::future::TryFutureExt;
 use slog::{info, Logger};
 use slog::{o, Drain};
+use snafu::futures::try_future::TryFutureExt as SnafuTryFutureExt;
 use std::env;
 use std::path::Path;
 use std::thread;
@@ -14,7 +16,7 @@ use users::api::users::{MultiUsersResponseBody, SingleUserResponseBody, UserRequ
 use users::db::pg;
 use users::error;
 use users::settings::Settings;
-use users::utils::get_database_url;
+use users::utils::{construct_headers, get_database_url, get_service_url};
 
 pub async fn test<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), error::Error> {
     let settings = Settings::new(matches)?;
@@ -134,6 +136,58 @@ steps!(MyWorld => {
         }
     };
 
+    when regex r"I add a new user with no username and email (.*)$" |world, matches, _step| {
+        let user = UserRequestBody {
+            username: String::from(""),
+            email: matches[1].clone()
+        };
+        match add_user(user) {
+            Ok(resp) => { world.single_resp = Some(resp); }
+            Err(err) => { world.error = Some(format!("{}", err)); }
+        }
+    };
+
+    when r"I add a new user with an empty payload" |world, _step| {
+        let handle = tokio::runtime::Handle::current();
+        let th = std::thread::spawn(move || handle.block_on(async {
+            let data = format!(
+                r#"{{ "query": {query}, "variables": {{ "user": {variables} }} }}"#,
+                query = "{}",
+                variables = "{}"
+            );
+            let url = get_service_url();
+            let client = reqwest::Client::new();
+            client
+                .post(&url)
+                .headers(construct_headers())
+                .body(data)
+                .send()
+                .context(error::ReqwestError {
+                    msg: String::from("Could not request SingleUserResponseBody"),
+                })
+            .and_then(|resp| {
+                async {
+                    // We're expecting an error in the response
+                    // FIXME: The error is actually a Warp rejection of the content-header.
+                    // .... which I don't understand, since the `data` is valid JSON.
+                    // I don't want to spend too much time on that right now, but it needs
+                    // to be investigated.... Ideally I'd like some juniper error that says
+                    // that the payload is invalid.
+                    let txt = resp.text().await.unwrap();
+                    let res: Result<(), _> = Err(error::Error::MiscError {
+                        msg: txt
+                    });
+                    res
+                }
+            }).await
+        } )
+        );
+
+        let res = th.join().unwrap();
+        assert!(res.is_err());
+        world.error = Some(format!("{}", res.unwrap_err()));
+    };
+
     when regex r"I search for a user with username (.*)$" |world, matches, _step| {
         let username = matches[1].clone();
         match find_user_by_username(username) {
@@ -158,6 +212,21 @@ steps!(MyWorld => {
     then "I get a duplicate username error" |world, _step| {
         let err = world.error.as_ref().unwrap();
         assert_ne!(err.find("Operation violates uniqueness constraint: Key (username)"), None);
+    };
+
+    then "I get a model violation error" |world, _step| {
+        let err = world.error.as_ref().unwrap();
+        assert_ne!(err.find("Operation violates model"), None);
+    };
+
+    then "I get an invalid request error" |world, _step| {
+        let err = world.error.as_ref().unwrap();
+        assert_ne!(err.find("Invalid request header"), None);
+    };
+
+    then "I can verify the user does not exists" |world, _step| {
+        let resp = world.single_resp.as_ref().unwrap();
+        assert!(resp.user.is_none())
     };
 
 });

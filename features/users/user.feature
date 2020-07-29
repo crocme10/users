@@ -36,9 +36,29 @@ Feature: User feature
   Scenario: Searching a user by username
     Given I have a user with username <username0> and email <email0>
     And I have a user with username <username1> and email <email1>
-    When I search for a user with username <username1>
-    Then I can verify the username <username1> in the response
+    When I search for a user with username <username0>
+    Then I can verify the username <username0> in the response
 
+
+    Examples:
+      | username0 | email0           | username1 | email1           |
+      | alice     | alice@secret.org | bob       | bob@secret.org   |
+
+  Scenario: Empty payload
+    Given I have initialized the user database
+    When I add a new user with an empty payload
+    Then I get an invalid request error
+
+  Scenario: Empty username
+    Given I have initialized the user database
+    When I add a new user with no username and email alice@secret.org
+    Then I get a model violation error
+
+  Scenario: Searching with a non existing username
+    Given I have a user with username <username0> and email <email0>
+    And I have a user with username <username1> and email <email1>
+    When I search for a user with username eve
+    Then I can verify the user does not exists
 
     Examples:
       | username0 | email0           | username1 | email1           |
