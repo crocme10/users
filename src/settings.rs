@@ -29,7 +29,7 @@ pub struct Settings {
 // TODO Parameterize the config directory
 
 impl Settings {
-    pub fn new(matches: &ArgMatches) -> Result<Self, error::Error> {
+    pub fn new<'a, T: Into<Option<&'a ArgMatches<'a>>>>(matches: T) -> Result<Self, error::Error> {
         let mut s = Config::new();
 
         // Start off by merging in the "default" configuration file
@@ -75,20 +75,25 @@ impl Settings {
             msg: String::from("Could not set database url from environment variable"),
         })?;
 
-        // Finally we override values with what has been given at the command line
-        if let Some(addr) = matches.value_of("address") {
-            s.set("service.host", addr).context(error::ConfigError {
-                msg: String::from("Could not set service host from CLI argument"),
-            })?;
-        }
+        // let m: Option<ArgMatches<'a>> = matches.into();
+        let m = matches.into();
+        if m.is_some() {
+            let m = m.unwrap();
+            // Finally we override values with what has been given at the command line
+            if let Some(addr) = m.value_of("address") {
+                s.set("service.host", addr).context(error::ConfigError {
+                    msg: String::from("Could not set service host from CLI argument"),
+                })?;
+            }
 
-        if let Some(port) = matches.value_of("port") {
-            let _port = port.parse::<u16>().map_err(|err| error::Error::MiscError {
-                msg: format!("Could not parse into a valid port number ({})", err),
-            })?;
-            s.set("service.port", port).context(error::ConfigError {
-                msg: String::from("Could not set service port from CLI argument"),
-            })?;
+            if let Some(port) = m.value_of("port") {
+                let _port = port.parse::<u16>().map_err(|err| error::Error::MiscError {
+                    msg: format!("Could not parse into a valid port number ({})", err),
+                })?;
+                s.set("service.port", port).context(error::ConfigError {
+                    msg: String::from("Could not set service port from CLI argument"),
+                })?;
+            }
         }
 
         // You can deserialize (and thus freeze) the entire configuration as

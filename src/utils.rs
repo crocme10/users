@@ -1,6 +1,8 @@
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE};
 use std::env;
 
+use crate::settings::Settings;
+
 pub fn construct_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
@@ -9,10 +11,17 @@ pub fn construct_headers() -> HeaderMap {
 }
 
 pub fn get_service_url() -> String {
+    // FIXME Uncommenting the following will lead to linking error
+    // So I hardcode the port...
+    // Here we pass 'None' to settings, because we don't have any command line argument to
+    // overwrite what's in the file settings.
+    // let settings = Settings::new(None).expect("Settings");
+    // let port = settings.service.port;
+    let port = 5000;
     let mode = env::var("RUN_MODE").expect("RUN_MODE should be set");
     match mode.as_str() {
-        "testing" => String::from("http://localhost:8081/graphql"),
-        _ => String::from("http://users:8081/graphql"),
+        "testing" => format!("http://localhost:{}/graphql", port),
+        _ => format!("http://users:{}/graphql", port),
     }
 }
 
