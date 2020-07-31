@@ -1,8 +1,6 @@
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE};
 use std::env;
 
-use crate::settings::Settings;
-
 pub fn construct_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert(ACCEPT, HeaderValue::from_static("application/json"));

@@ -10,6 +10,7 @@ use users::db::pg;
 use users::error;
 use users::settings::Settings;
 
+#[allow(clippy::needless_lifetimes)]
 pub async fn run<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), error::Error> {
     let settings = Settings::new(matches)?;
     let s2 = settings.clone();

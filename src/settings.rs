@@ -41,7 +41,7 @@ impl Settings {
         // Add in the current environment file
         // Default to 'development' env
         // Note that this file is _optional_
-        let env = env::var("RUN_MODE").unwrap_or("development".into());
+        let env = env::var("RUN_MODE").unwrap_or_else(|_| String::from("development"));
         s.merge(File::with_name(&format!("config/{}", env)).required(true))
             .context(error::ConfigError {
                 msg: format!("Could not merge {} configuration", env),
@@ -75,10 +75,8 @@ impl Settings {
             msg: String::from("Could not set database url from environment variable"),
         })?;
 
-        // let m: Option<ArgMatches<'a>> = matches.into();
         let m = matches.into();
-        if m.is_some() {
-            let m = m.unwrap();
+        if let Some(m) = m {
             // Finally we override values with what has been given at the command line
             if let Some(addr) = m.value_of("address") {
                 s.set("service.host", addr).context(error::ConfigError {

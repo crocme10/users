@@ -64,7 +64,7 @@ impl From<sqlx::Error> for ProvideError {
             sqlx::Error::Database(db_err) => {
                 if let Some(pg_err) = db_err.try_downcast_ref::<sqlx::postgres::PgError>() {
                     if let Ok(provide_err) = ProvideError::try_from(pg_err) {
-                        return provide_err;
+                        provide_err
                     } else {
                         ProvideError::UnHandledError {
                             source: sqlx::Error::Database(db_err),

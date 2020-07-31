@@ -5,6 +5,7 @@ use users::db;
 use users::error;
 use users::settings::Settings;
 
+#[allow(clippy::needless_lifetimes)]
 pub async fn init<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), error::Error> {
     info!(logger, "Initiazing application");
     let settings = Settings::new(matches)?;

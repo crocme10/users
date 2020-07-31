@@ -134,7 +134,7 @@ ORDER BY created_at
 
         let users = users
             .into_iter()
-            .map(|u| model::UserEntity::from(u))
+            .map(model::UserEntity::from)
             .collect::<Vec<_>>();
 
         Ok(users)
@@ -179,11 +179,11 @@ pub async fn init_db(conn_str: &str, logger: Logger) -> Result<(), error::Error>
     cmd.stdin(Stdio::from(file));
 
     let mut child = cmd.spawn().context(error::TokioIOError {
-        msg: format!("Failed to execute psql"),
+        msg: String::from("Failed to execute psql"),
     })?;
 
     let stdout = child.stdout.take().ok_or(error::Error::MiscError {
-        msg: format!("child did not have a handle to stdout"),
+        msg: String::from("child did not have a handle to stdout"),
     })?;
 
     let mut reader = BufReader::new(stdout).lines();

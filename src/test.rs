@@ -18,6 +18,7 @@ use users::error;
 use users::settings::Settings;
 use users::utils::{construct_headers, get_database_url, get_service_url};
 
+#[allow(clippy::needless_lifetimes)]
 pub async fn test<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), error::Error> {
     let settings = Settings::new(matches)?;
 
@@ -38,7 +39,8 @@ pub async fn test<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), er
                     .await
                     .expect("Cannot obtain database connection for testing");
                 info!(logger, "Running test service");
-                run_server(settings, logger, pool).await;
+                // FIXME Do something with server's return value (especially error case)
+                let _ = run_server(settings, logger, pool).await;
             });
         });
         //th.join().expect("Waiting for test execution");
@@ -68,11 +70,13 @@ fn get_cucumber_instance() -> CucumberBuilder<MyWorld, DefaultOutput> {
 
     instance.setup(setup);
 
+    #[allow(clippy::type_complexity)]
     let before_fns: Option<&[fn(&Scenario) -> ()]> = Some(&[a_before_fn]);
     if let Some(before) = before_fns {
         instance.before(before.to_vec());
     }
 
+    #[allow(clippy::type_complexity)]
     let after_fns: Option<&[fn(&Scenario) -> ()]> = Some(&[an_after_fn]);
     if let Some(after) = after_fns {
         instance.after(after.to_vec());
@@ -244,7 +248,6 @@ after!(an_after_fn => |_scenario| {
 // A setup function to be called before everything else
 pub fn setup() {
     let logger = slog::Logger::root(slog::Discard, o!());
-    // FIXME
     let db_url = get_database_url();
     let handle = tokio::runtime::Handle::current();
     let th = std::thread::spawn(move || {

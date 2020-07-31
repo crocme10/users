@@ -67,10 +67,7 @@ pub async fn list_users(context: &Context) -> Result<MultiUsersResponseBody, err
             msg: "Could not get all them users",
         })?;
 
-        let users = entities
-            .into_iter()
-            .map(|ent| User::from(ent))
-            .collect::<Vec<_>>();
+        let users = entities.into_iter().map(User::from).collect::<Vec<_>>();
 
         tx.commit().await.context(error::DBError {
             msg: "could not commit transaction",
