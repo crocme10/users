@@ -8,7 +8,7 @@ variables:
   POSTGRES_PASSWORD: secret
 
 stages:
-  # - check
+  - check
   - build
   - test
 
@@ -20,23 +20,23 @@ stages:
   - rustc --version
   - cargo --version
 
-# format:
-#   stage: check
-#   image: rust:latest
-#  before_script:
-#    - *check-rust
-#   script:
-#     - rustup component add rustfmt
-#     - cargo fmt --all -- --check
-#
-# lint:
-#   stage: check
-#   image: rust:latest
-#  before_script:
-#    - *check-rust
-#   script:
-#     - rustup component add clippy
-#     - cargo clippy --workspace --bins --examples --tests --release -- -D warnings
+format:
+  stage: check
+  image: rust:latest
+ before_script:
+   - *check-rust
+  script:
+    - rustup component add rustfmt
+    - cargo fmt --all -- --check
+
+lint:
+  stage: check
+  image: rust:latest
+ before_script:
+   - *check-rust
+  script:
+    - rustup component add clippy
+    - cargo clippy --workspace --bins --examples --tests --release -- -D warnings
 
 build-release:
   stage: build
