@@ -23,7 +23,7 @@ stages:
 format:
   stage: check
   image: rust:latest
- before_script:
+  before_script:
    - *check-rust
   script:
     - rustup component add rustfmt
@@ -32,7 +32,7 @@ format:
 lint:
   stage: check
   image: rust:latest
- before_script:
+  before_script:
    - *check-rust
   script:
     - rustup component add clippy
