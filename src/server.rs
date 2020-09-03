@@ -2,13 +2,17 @@ use clap::ArgMatches;
 use slog::{info, o, Logger};
 use snafu::ResultExt;
 use sqlx::postgres::PgPool;
+use std::convert::Infallible;
 use std::net::ToSocketAddrs;
-use warp::{self, http, Filter};
-
 use users::api::gql;
 use users::db::pg;
 use users::error;
 use users::settings::Settings;
+// use warp::http::header::{
+//     ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_METHODS, ACCESS_CONTROL_ALLOW_ORIGIN,
+//     ACCESS_CONTROL_MAX_AGE,
+// };
+use warp::{self, http, Filter};
 
 #[allow(clippy::needless_lifetimes)]
 pub async fn run<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), error::Error> {
@@ -46,7 +50,23 @@ pub async fn run_server(
 
     let graphql_filter = juniper_warp::make_graphql_filter(gql::schema(), state.boxed());
 
-    let graphql = warp::path!("graphql").and(graphql_filter);
+    // let cors = warp::reply::with::header(ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_methods(&[http::Method::POST])
+        .allow_headers(vec!["content-type"]);
+    // let options = warp::options()
+    //     //.and(warp::path("graphql"))
+    //     .and(warp::header("access-control-request-headers"))
+    //     .and(warp::header("access-control-request-method"))
+    //     .and_then(preflight_request)
+    //     .with(warp::log("warp cors"));
+
+    let graphql = warp::post()
+        .and(warp::path("graphql"))
+        .and(graphql_filter)
+        .with(cors);
 
     let routes = playground.or(graphql);
 
@@ -101,3 +121,14 @@ fn playground_response(
         )
         .expect("response is valid")
 }
+
+// async fn preflight_request(
+//     headers: String,
+//     methods: String,
+// ) -> Result<impl warp::Reply, Infallible> {
+//     let reply = warp::reply::with_header(warp::reply(), ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+//     let reply = warp::reply::with_header(reply, ACCESS_CONTROL_ALLOW_HEADERS, headers);
+//     let reply = warp::reply::with_header(reply, ACCESS_CONTROL_ALLOW_METHODS, methods);
+//     let reply = warp::reply::with_header(reply, ACCESS_CONTROL_MAX_AGE, "86400");
+//     Ok(reply)
+// }
