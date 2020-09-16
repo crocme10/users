@@ -29,14 +29,43 @@ pub async fn list_users() -> Result<MultiUsersResponseBody, error::Error> {
                 })
         })
         .and_then(|json| {
+            // This json object can be either { data: { users: { } } } if the call was successful,
+            // or { data: null, error: [ ] } if the call was not successful,
+            // FIXME Lots of unwrap in the following code, also I don't extract the 'message' part
+            // of the error.
             async move {
-                let res = &json["data"]["users"];
-                let res = res.clone();
-                serde_json::from_value(res)
+                let data = &json["data"];
+                if data.is_null() {
+                    if let Some(errors) = json.get("errors") {
+                        let errors = errors.clone();
+                        let msg = errors
+                            .get(1)
+                            .unwrap()
+                            .get("extensions")
+                            .unwrap()
+                            .get("internal_error")
+                            .unwrap();
+                        return Err(error::Error::MiscError {
+                            msg: format!("Error while requesting users: {}", msg),
+                        });
+                    } else {
+                        return Err(error::Error::MiscError {
+                            msg: String::from("Data is null, and there are no errors."),
+                        });
+                    }
+                } else {
+                    if let Some(users) = data.get("users") {
+                        let users = users.clone();
+                        serde_json::from_value(users).context(error::JSONError {
+                            msg: String::from("Could not deserialize users"),
+                        })
+                    } else {
+                        Err(error::Error::MiscError {
+                            msg: String::from("Data is not null, and there are no users."),
+                        })
+                    }
+                }
             }
-            .context(error::JSONError {
-                msg: String::from("Could not deserialize MultiUsersResponseBody"),
-            })
         })
         .await
 }
@@ -175,12 +204,21 @@ pub mod blocking {
         // We use the Client API, which is async, so we need to wrap it around some
         // tokio machinery to spin the async code in a thread, and wait for the result.
         let handle = tokio::runtime::Handle::current();
-        let th = std::thread::spawn(move || handle.block_on(async { super::list_users().await }));
+        let th = std::thread::spawn(move || {
+            match handle.block_on(async { super::list_users().await }) {
+                Ok(m) => Ok(m),
+                Err(err) => {
+                    println!("Err: {}", err);
+                    Err(err)
+                }
+            }
+        });
         th.join().unwrap()
     }
     pub fn add_user(user: UserRequestBody) -> Result<SingleUserResponseBody, error::Error> {
         // We use the Client API, which is async, so we need to wrap it around some
         // tokio machinery to spin the async code in a thread, and wait for the result.
+        // FIXME We're not extracting the error properly
         let handle = tokio::runtime::Handle::current();
         let th = std::thread::spawn(move || handle.block_on(async { super::add_user(user).await }));
         th.join().unwrap()

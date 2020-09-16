@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use slog::{debug, info, Logger};
+use slog::{debug, info, o, Logger};
 use snafu::ResultExt;
 use sqlx::error::DatabaseError;
 use sqlx::pool::PoolConnection;
@@ -167,19 +167,26 @@ WHERE username = $1
 
 pub async fn init_db(conn_str: &str, logger: Logger) -> Result<(), error::Error> {
     info!(logger, "Initializing  DB @ {}", conn_str);
+    migration_down(conn_str, &logger).await?;
+    migration_up(conn_str, &logger).await?;
+    Ok(())
+}
+
+pub async fn migration_up(conn_str: &str, logger: &Logger) -> Result<(), error::Error> {
+    let clogger = logger.new(o!("database" => String::from(conn_str)));
+    debug!(clogger, "Movine Up");
     // This is essentially running 'psql $DATABASE_URL < db/init.sql', and logging the
     // psql output.
     // FIXME This relies on a command psql, which is not desibable.
     // We could alternatively try to use sqlx...
     // There may be a tool for doing migrations.
-    let mut cmd = Command::new("psql");
-    cmd.arg(conn_str);
+    let mut cmd = Command::new("movine");
+    cmd.env("DATABASE_URL", conn_str);
+    cmd.arg("up");
     cmd.stdout(Stdio::piped());
-    let file = std::fs::File::open("db/init.sql").expect("file");
-    cmd.stdin(Stdio::from(file));
 
     let mut child = cmd.spawn().context(error::TokioIOError {
-        msg: String::from("Failed to execute psql"),
+        msg: String::from("Failed to execute movine"),
     })?;
 
     let stdout = child.stdout.take().ok_or(error::Error::MiscError {
@@ -195,12 +202,53 @@ pub async fn init_db(conn_str: &str, logger: Logger) -> Result<(), error::Error>
         let _status = child.await.expect("child process encountered an error");
         // println!("child status was: {}", status);
     });
-    info!(logger, "Spawned init.sql");
+    debug!(clogger, "Spawned migration up");
 
     while let Some(line) = reader.next_line().await.context(error::TokioIOError {
         msg: String::from("Could not read from piped output"),
     })? {
-        debug!(logger, "psql {}", line);
+        debug!(clogger, "movine: {}", line);
+    }
+
+    Ok(())
+}
+
+pub async fn migration_down(conn_str: &str, logger: &Logger) -> Result<(), error::Error> {
+    let clogger = logger.new(o!("database" => String::from(conn_str)));
+    debug!(clogger, "Movine Down");
+    // This is essentially running 'psql $DATABASE_URL < db/init.sql', and logging the
+    // psql output.
+    // FIXME This relies on a command psql, which is not desibable.
+    // We could alternatively try to use sqlx...
+    // There may be a tool for doing migrations.
+    let mut cmd = Command::new("movine");
+    cmd.env("DATABASE_URL", conn_str);
+    cmd.arg("down");
+    cmd.stdout(Stdio::piped());
+
+    let mut child = cmd.spawn().context(error::TokioIOError {
+        msg: String::from("Failed to execute movine"),
+    })?;
+
+    let stdout = child.stdout.take().ok_or(error::Error::MiscError {
+        msg: String::from("child did not have a handle to stdout"),
+    })?;
+
+    let mut reader = BufReader::new(stdout).lines();
+
+    // Ensure the child process is spawned in the runtime so it can
+    // make progress on its own while we await for any output.
+    tokio::spawn(async {
+        // FIXME Need to do something about logging this and returning an error.
+        let _status = child.await.expect("child process encountered an error");
+        // println!("child status was: {}", status);
+    });
+    debug!(clogger, "Spawned migration down");
+
+    while let Some(line) = reader.next_line().await.context(error::TokioIOError {
+        msg: String::from("Could not read from piped output"),
+    })? {
+        debug!(clogger, "movine: {}", line);
     }
 
     Ok(())

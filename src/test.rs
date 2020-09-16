@@ -247,8 +247,13 @@ after!(an_after_fn => |_scenario| {
 
 // A setup function to be called before everything else
 pub fn setup() {
-    let logger = slog::Logger::root(slog::Discard, o!());
+    let decorator = slog_term::TermDecorator::new().build();
+    let drain = slog_term::FullFormat::new(decorator).build().fuse();
+    let drain = slog_async::Async::new(drain).build().fuse();
+    let logger = slog::Logger::root(drain, o!());
+    // let logger = slog::Logger::root(slog::Discard, o!());
     let db_url = get_database_url();
+    info!(logger, "database url: {}", db_url);
     let handle = tokio::runtime::Handle::current();
     let th = std::thread::spawn(move || {
         handle.block_on(async {
