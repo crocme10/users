@@ -18,10 +18,25 @@ pub struct Service {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct Argon {
+    pub secret: String,
+    pub memory_size: Option<u32>,
+    pub iterations: Option<u32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Jwt {
+    pub secret: String,
+    pub duration: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct Settings {
     pub debug: bool,
     pub testing: bool,
     pub mode: String,
+    pub argon: Argon,
+    pub jwt: Jwt,
     pub database: Database,
     pub service: Service,
 }
@@ -41,10 +56,10 @@ impl Settings {
         // Add in the current environment file
         // Default to 'development' env
         // Note that this file is _optional_
-        let env = env::var("RUN_MODE").unwrap_or_else(|_| String::from("development"));
-        s.merge(File::with_name(&format!("config/{}", env)).required(true))
+        let mode = env::var("RUN_MODE").unwrap_or_else(|_| String::from("development"));
+        s.merge(File::with_name(&format!("config/{}", mode)).required(true))
             .context(error::ConfigError {
-                msg: format!("Could not merge {} configuration", env),
+                msg: format!("Could not merge {} configuration", mode),
             })?;
 
         // Add in a local configuration file
@@ -62,7 +77,7 @@ impl Settings {
             })?;
 
         // Now we take care of the database.url, which can be had from environment variables.
-        let key = match env.as_str() {
+        let key = match mode.as_str() {
             "testing" => "DATABASE_TEST_URL",
             _ => "DATABASE_URL",
         };

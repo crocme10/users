@@ -1,40 +1,26 @@
 use clap::ArgMatches;
-use slog::{info, o, Logger};
+use slog::{info, Logger};
 use snafu::ResultExt;
-use sqlx::postgres::PgPool;
+// use sqlx::postgres::PgPool;
 use std::net::ToSocketAddrs;
 use users::api::gql;
-use users::db::pg;
+// use users::db::pg;
 use users::error;
 use users::settings::Settings;
+use users::state::state::State;
 use warp::{self, http, Filter};
 
 #[allow(clippy::needless_lifetimes)]
 pub async fn run<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), error::Error> {
     let settings = Settings::new(matches)?;
-    let s2 = settings.clone();
-
-    let clogger = logger.new(
-        o!("host" => s2.service.host, "port" => s2.service.port, "database" => s2.database.url),
-    );
-
-    let db_url = settings.database.url.clone();
-
-    let pool = pg::connect(&db_url).await.context(error::DBError {
-        msg: String::from("foo"),
-    })?;
-
-    run_server(settings, clogger, pool).await
+    let state = State::new(&settings, &logger).await?;
+    run_server(settings, state).await
 }
 
-pub async fn run_server(
-    settings: Settings,
-    logger: Logger,
-    pool: PgPool,
-) -> Result<(), error::Error> {
-    let logger1 = logger.clone();
-    let pool1 = pool.clone();
-    let state = warp::any().map(move || gql::Context {
+pub async fn run_server(settings: Settings, state: State) -> Result<(), error::Error> {
+    let logger1 = state.logger.clone();
+    let pool1 = state.pool.clone();
+    let zstate = warp::any().map(move || gql::Context {
         logger: logger1.clone(),
         pool: pool1.clone(),
     });
@@ -43,7 +29,7 @@ pub async fn run_server(
         .and(warp::path("playground"))
         .and(playground_filter("/graphql", Some("/subscriptions")));
 
-    let graphql_filter = juniper_warp::make_graphql_filter(gql::schema(), state.boxed());
+    let graphql_filter = juniper_warp::make_graphql_filter(gql::schema(), zstate.boxed());
 
     let cors = warp::cors()
         .allow_any_origin()
@@ -72,7 +58,7 @@ pub async fn run_server(
         })?;
 
     info!(
-        logger.clone(),
+        state.logger.clone(),
         "Serving Users on {}:{}",
         addr.ip(),
         addr.port()

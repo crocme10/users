@@ -3,6 +3,12 @@ FROM rust:1.44-stretch as builder
 RUN USER=root cargo new --lib users
 WORKDIR ./users
 COPY ./Cargo.toml ./Cargo.toml
+
+# clang llvm & Co. to build argonautica
+RUN apt-get update \
+    && apt-get install -y clang llvm-dev libclang-dev \
+    && rm -fr /var/lib/apt/list/*
+
 RUN cargo build --release --lib
 RUN rm src/*.rs
 
@@ -15,6 +21,7 @@ FROM rust:1.44-stretch
 ARG APP=/usr/src/app
 
 RUN apt-get update \
+    && apt-get install -y clang llvm-dev libclang-dev \
     && apt-get install -y postgresql-client \
     && apt-get install -y pkg-config \
     && apt-get install -y netcat \

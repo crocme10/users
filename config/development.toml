@@ -1,6 +1,13 @@
 debug = true
 mode = "development"
 
+[argon]
+secret = "hello"
+
+[jwt]
+secret = "hello"
+duration = 15
+
 [database]
 echo = true
 

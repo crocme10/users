@@ -56,6 +56,13 @@ pub enum Error {
     #[snafu(display("Reqwest Error: {} - {}", msg, source))]
     #[snafu(visibility(pub))]
     ReqwestError { msg: String, source: reqwest::Error },
+
+    #[snafu(display("Biscuit Error: {} - {}", msg, source))]
+    #[snafu(visibility(pub))]
+    BiscuitError {
+        msg: String,
+        source: biscuit::errors::Error,
+    },
 }
 
 impl IntoFieldError for Error {
@@ -125,6 +132,14 @@ impl IntoFieldError for Error {
                 let errmsg = format!("{}", err);
                 FieldError::new(
                     "Reqwest Error",
+                    graphql_value!({ "internal_error": errmsg }),
+                )
+            }
+
+            err @ Error::BiscuitError { .. } => {
+                let errmsg = format!("{}", err);
+                FieldError::new(
+                    "Biscuit Error",
                     graphql_value!({ "internal_error": errmsg }),
                 )
             }

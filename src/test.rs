@@ -6,7 +6,6 @@ use futures::future::TryFutureExt;
 use slog::{info, Logger};
 use slog::{o, Drain};
 use snafu::futures::try_future::TryFutureExt as SnafuTryFutureExt;
-use std::env;
 use std::path::Path;
 use std::thread;
 
@@ -16,6 +15,7 @@ use users::api::users::{MultiUsersResponseBody, SingleUserResponseBody, UserRequ
 use users::db::pg;
 use users::error;
 use users::settings::Settings;
+use users::state::state::State;
 use users::utils::{construct_headers, get_database_url, get_service_url};
 
 #[allow(clippy::needless_lifetimes)]
@@ -33,14 +33,10 @@ pub async fn test<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), er
                 let drain = slog_term::FullFormat::new(decorator).build().fuse();
                 let drain = slog_async::Async::new(drain).build().fuse();
                 let logger = slog::Logger::root(drain, o!());
-                let db_url =
-                    env::var("DATABASE_TEST_URL").expect("DATABASE_TEST_URL should be set");
-                let pool = pg::connect(&db_url)
+                let state = State::new(&settings, &logger)
                     .await
-                    .expect("Cannot obtain database connection for testing");
-                info!(logger, "Running test service");
-                // FIXME Do something with server's return value (especially error case)
-                let _ = run_server(settings, logger, pool).await;
+                    .expect("state creation");
+                let _ = run_server(settings, state).await;
             });
         });
         //th.join().expect("Waiting for test execution");
