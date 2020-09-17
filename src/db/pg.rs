@@ -16,11 +16,15 @@ use super::model;
 use super::Db;
 use crate::error;
 
+/// There is some overlap in this example between ProvideData and ProvideAuthn, because
+/// the data is essentially users, and that's what authentication deals with as well.
+
 /// A user registered with the application (Postgres version)
 pub struct UserEntity {
     pub id: model::EntityId,
     pub username: String,
     pub email: String,
+    pub password: String,
     pub active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -32,9 +36,10 @@ impl<'c> FromRow<'c, PgRow<'c>> for UserEntity {
             id: row.get(0),
             username: row.get(1),
             email: row.get(2),
-            active: row.get(3),
-            created_at: row.get(4),
-            updated_at: row.get(5),
+            password: row.get(3),
+            active: row.get(4),
+            created_at: row.get(5),
+            updated_at: row.get(6),
         })
     }
 }
@@ -45,6 +50,7 @@ impl From<UserEntity> for model::UserEntity {
             id,
             username,
             email,
+            password,
             active,
             created_at,
             updated_at,
@@ -54,6 +60,7 @@ impl From<UserEntity> for model::UserEntity {
             id,
             username,
             email,
+            password,
             active,
             created_at,
             updated_at,
@@ -105,16 +112,18 @@ impl model::ProvideData for PgConnection {
         &mut self,
         username: &str,
         email: &str,
+        password: &str,
     ) -> model::ProvideResult<model::UserEntity> {
         let user: UserEntity = sqlx::query_as(
             r#"
-INSERT INTO main.users ( username, email )
-VALUES ( $1, $2 )
+INSERT INTO main.users ( username, email, password )
+VALUES ( $1, $2, $3 )
 RETURNING *
         "#,
         )
         .bind(username)
         .bind(email)
+        .bind(password)
         .fetch_one(self)
         .await?;
 
@@ -162,6 +171,101 @@ WHERE username = $1
                 Ok(Some(user))
             }
         }
+    }
+}
+
+#[async_trait]
+impl model::ProvideAuthn for PgConnection {
+    async fn create_user(
+        &mut self,
+        username: &str,
+        email: &str,
+        password: &str,
+    ) -> model::ProvideResult<model::UserEntity> {
+        let user: UserEntity = sqlx::query_as(
+            r#"
+INSERT INTO main.users ( username, email, password )
+VALUES ( $1, $2, $3 )
+RETURNING *
+        "#,
+        )
+        .bind(username)
+        .bind(email)
+        .bind(password)
+        .fetch_one(self)
+        .await?;
+
+        Ok(user.into())
+    }
+
+    async fn get_user_by_id(
+        &mut self,
+        user_id: model::EntityId,
+    ) -> model::ProvideResult<Option<model::UserEntity>> {
+        let user: Option<UserEntity> = sqlx::query_as(
+            r#"
+SELECT *
+FROM main.users
+WHERE id = $1
+            "#,
+        )
+        .bind(user_id)
+        .fetch_optional(self)
+        .await?;
+
+        match user {
+            None => Ok(None),
+            Some(user) => {
+                let user = model::UserEntity::from(user);
+                Ok(Some(user))
+            }
+        }
+    }
+
+    async fn get_user_by_email(
+        &mut self,
+        email: &str,
+    ) -> model::ProvideResult<Option<model::UserEntity>> {
+        let user: Option<UserEntity> = sqlx::query_as(
+            r#"
+SELECT *
+FROM main.users
+WHERE email = $1
+            "#,
+        )
+        .bind(email)
+        .fetch_optional(self)
+        .await?;
+
+        match user {
+            None => Ok(None),
+            Some(user) => {
+                let user = model::UserEntity::from(user);
+                Ok(Some(user))
+            }
+        }
+    }
+
+    async fn update_user(
+        &mut self,
+        updated: &model::UserEntity,
+    ) -> model::ProvideResult<model::UserEntity> {
+        let user: UserEntity = sqlx::query_as(
+            r#"
+UPDATE main.users
+SET email = $1, username = $2, password = $3, updated_at = DEFAULT
+WHERE id = $4
+RETURNING *
+            "#,
+        )
+        .bind(updated.email.clone())
+        .bind(updated.username.clone())
+        .bind(updated.password.clone())
+        .bind(updated.id)
+        .fetch_one(self)
+        .await?;
+
+        Ok(user.into())
     }
 }
 

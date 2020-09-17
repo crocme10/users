@@ -109,10 +109,11 @@ steps!(MyWorld => {
         // FIXME Not doing anything, that's a smell....
     };
 
-    given regex r"I have a user with username (.*) and email (.*)$" |world, matches, _step| {
+    given regex r"I have a user with username (.*) and email (.*) and password (.*)$" |world, matches, _step| {
         let user = UserRequestBody {
             username: matches[1].clone(),
-            email: matches[2].clone()
+            email: matches[2].clone(),
+            password: matches[3].clone(),
         };
         match add_user(user) {
             Ok(resp) => { world.single_resp = Some(resp); }
@@ -129,10 +130,11 @@ steps!(MyWorld => {
         }
     };
 
-    when regex r"I add a new user with username (.*) and email (.*)$" |world, matches, _step| {
+    when regex r"I add a new user with username (.*) and email (.*) and password (.*)$" |world, matches, _step| {
         let user = UserRequestBody {
             username: matches[1].clone(),
-            email: matches[2].clone()
+            email: matches[2].clone(),
+            password: matches[3].clone(),
         };
         match add_user(user) {
             Ok(resp) => { world.single_resp = Some(resp); }
@@ -140,10 +142,11 @@ steps!(MyWorld => {
         }
     };
 
-    when regex r"I add a new user with no username and email (.*)$" |world, matches, _step| {
+    when regex r"I add a new user with no username and email (.*) and password (.*)$" |world, matches, _step| {
         let user = UserRequestBody {
             username: String::from(""),
-            email: matches[1].clone()
+            email: matches[1].clone(),
+            password: matches[2].clone(),
         };
         match add_user(user) {
             Ok(resp) => { world.single_resp = Some(resp); }

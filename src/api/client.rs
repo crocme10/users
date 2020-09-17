@@ -38,13 +38,13 @@ pub async fn list_users() -> Result<MultiUsersResponseBody, error::Error> {
                 if data.is_null() {
                     if let Some(errors) = json.get("errors") {
                         let errors = errors.clone();
-                        let msg = errors
-                            .get(1)
-                            .unwrap()
+                        let errors = errors.as_array().expect("errors is an array");
+                        let error = &errors.first().expect("at least one error");
+                        let msg = error
                             .get("extensions")
-                            .unwrap()
+                            .expect("error to have an extension field")
                             .get("internal_error")
-                            .unwrap();
+                            .expect("extension to have an internal_error field");
                         return Err(error::Error::MiscError {
                             msg: format!("Error while requesting users: {}", msg),
                         });
@@ -85,7 +85,7 @@ pub async fn add_user(user: UserRequestBody) -> Result<SingleUserResponseBody, e
         .and_then(|resp| {
             resp.json::<serde_json::Value>()
                 .context(error::ReqwestError {
-                    msg: String::from("Could not deserialize MultiUsersResponseBody"),
+                    msg: String::from("Could not deserialize SingleUserResponseBody"),
                 })
         })
         .and_then(|json| {
@@ -207,10 +207,7 @@ pub mod blocking {
         let th = std::thread::spawn(move || {
             match handle.block_on(async { super::list_users().await }) {
                 Ok(m) => Ok(m),
-                Err(err) => {
-                    println!("Err: {}", err);
-                    Err(err)
-                }
+                Err(err) => Err(err),
             }
         });
         th.join().unwrap()

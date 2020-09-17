@@ -12,18 +12,42 @@ pub struct UserEntity {
     pub id: EntityId,
     pub username: String,
     pub email: String,
+    pub password: String,
     pub active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
+// From sqlx realworld example
 #[async_trait]
 pub trait ProvideData {
-    async fn create_user(&mut self, username: &str, email: &str) -> ProvideResult<UserEntity>;
+    async fn create_user(
+        &mut self,
+        username: &str,
+        email: &str,
+        password: &str,
+    ) -> ProvideResult<UserEntity>;
 
     async fn get_all_users(&mut self) -> ProvideResult<Vec<UserEntity>>;
 
     async fn get_user_by_username(&mut self, username: &str) -> ProvideResult<Option<UserEntity>>;
+}
+
+// From sqlx realworld example
+#[async_trait]
+pub trait ProvideAuthn {
+    async fn create_user(
+        &mut self,
+        username: &str,
+        email: &str,
+        password: &str,
+    ) -> ProvideResult<UserEntity>;
+
+    async fn get_user_by_id(&mut self, user_id: EntityId) -> ProvideResult<Option<UserEntity>>;
+
+    async fn get_user_by_email(&mut self, email: &str) -> ProvideResult<Option<UserEntity>>;
+
+    async fn update_user(&mut self, updated: &UserEntity) -> ProvideResult<UserEntity>;
 }
 
 pub type ProvideResult<T> = Result<T, ProvideError>;

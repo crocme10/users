@@ -11,6 +11,7 @@ CREATE TABLE main.users (
   id UUID PRIMARY KEY DEFAULT main.gen_random_uuid(),
   username VARCHAR(128) NOT NULL UNIQUE CHECK (username <> ''),
   email VARCHAR(128) NOT NULL CHECK (email <> ''),
+  password TEXT NOT NULL,
   active BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

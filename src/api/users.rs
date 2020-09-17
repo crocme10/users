@@ -48,6 +48,7 @@ impl From<Vec<User>> for MultiUsersResponseBody {
 pub struct UserRequestBody {
     pub username: String,
     pub email: String,
+    pub password: String,
 }
 
 /// Retrieve all users
@@ -84,7 +85,11 @@ pub async fn add_user(
     context: &Context,
 ) -> Result<SingleUserResponseBody, error::Error> {
     async move {
-        let UserRequestBody { username, email } = user_request;
+        let UserRequestBody {
+            username,
+            email,
+            password,
+        } = user_request;
 
         let state = &context.pool;
 
@@ -96,12 +101,12 @@ pub async fn add_user(
                 msg: "could not initiate transaction",
             })?;
 
-        let entity = tx
-            .create_user(&username, &email)
-            .await
-            .context(error::DBProvideError {
-                msg: "Could not create user",
-            })?;
+        let entity =
+            tx.create_user(&username, &email, &password)
+                .await
+                .context(error::DBProvideError {
+                    msg: "Could not create user",
+                })?;
 
         let user = User::from(entity);
 
