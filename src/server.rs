@@ -1,5 +1,5 @@
 use clap::ArgMatches;
-use slog::{info, Logger};
+use slog::{info, o, Logger};
 use snafu::ResultExt;
 // use sqlx::postgres::PgPool;
 use std::net::ToSocketAddrs;
@@ -18,35 +18,35 @@ pub async fn run<'a>(matches: &ArgMatches<'a>, logger: Logger) -> Result<(), err
 }
 
 pub async fn run_server(settings: Settings, state: State) -> Result<(), error::Error> {
-    let logger1 = state.logger.clone();
-    let pool1 = state.pool.clone();
-    let zstate = warp::any().map(move || gql::Context {
-        logger: logger1.clone(),
-        pool: pool1.clone(),
+    // We keep a copy of the logger before the context takes ownership of it.
+    let logger = state.logger.clone();
+
+    let context = warp::any().map(move || gql::Context {
+        state: state.clone(),
     });
+
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_methods(vec!["GET", "POST"])
+        .allow_headers(vec!["content-type", "authorization"])
+        .allow_any_origin()
+        .build();
+
+    let log = warp::log("foo");
 
     let playground = warp::get()
         .and(warp::path("playground"))
         .and(playground_filter("/graphql", Some("/subscriptions")));
 
-    let graphql_filter = juniper_warp::make_graphql_filter(gql::schema(), zstate.boxed());
+    let graphql_filter = juniper_warp::make_graphql_filter(gql::schema(), context.boxed());
 
-    let cors = warp::cors()
-        .allow_any_origin()
-        .allow_methods(&[http::Method::POST])
-        .allow_headers(vec!["content-type"]);
+    let graphql = warp::post().and(warp::path("graphql")).and(graphql_filter);
 
-    let graphql = warp::post()
-        .and(warp::path("graphql"))
-        .and(graphql_filter)
-        .with(cors);
-
-    let routes = playground.or(graphql);
+    let routes = playground.or(graphql).with(cors).with(log);
 
     let host = settings.service.host;
     let port = settings.service.port;
     let addr = (host.as_str(), port);
-
     let addr = addr
         .to_socket_addrs()
         .context(error::IOError {
@@ -57,12 +57,7 @@ pub async fn run_server(settings: Settings, state: State) -> Result<(), error::E
             msg: String::from("Cannot resolve addr"),
         })?;
 
-    info!(
-        state.logger.clone(),
-        "Serving Users on {}:{}",
-        addr.ip(),
-        addr.port()
-    );
+    info!(logger, "Serving Users");
     warp::serve(routes).run(addr).await;
 
     Ok(())

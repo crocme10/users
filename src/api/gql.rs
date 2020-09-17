@@ -1,13 +1,11 @@
 use juniper::{EmptySubscription, FieldResult, IntoFieldError, RootNode};
-use slog::Logger;
-use sqlx::postgres::PgPool;
 
 use super::users;
+use crate::state::state::State;
 
 #[derive(Debug, Clone)]
 pub struct Context {
-    pub logger: Logger,
-    pub pool: PgPool,
+    pub state: State,
 }
 
 impl juniper::Context for Context {}

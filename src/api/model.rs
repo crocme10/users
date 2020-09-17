@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use crate::db::model::*;
 
 /// A user
+/// TODO Justify why no password
 #[derive(Debug, Deserialize, Serialize, GraphQLObject)]
 #[serde(rename_all = "camelCase")]
-// pub(in crate::api) struct User {
 pub struct User {
     pub id: EntityId,
     pub username: String,

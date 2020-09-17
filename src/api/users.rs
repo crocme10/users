@@ -54,9 +54,9 @@ pub struct UserRequestBody {
 /// Retrieve all users
 pub async fn list_users(context: &Context) -> Result<MultiUsersResponseBody, error::Error> {
     async move {
-        let state = &context.pool;
+        let pool = &context.state.pool;
 
-        let mut tx = state
+        let mut tx = pool
             .conn()
             .and_then(Connection::begin)
             .await
@@ -91,9 +91,9 @@ pub async fn add_user(
             password,
         } = user_request;
 
-        let state = &context.pool;
+        let pool = &context.state.pool;
 
-        let mut tx = state
+        let mut tx = pool
             .conn()
             .and_then(Connection::begin)
             .await
@@ -125,9 +125,9 @@ pub async fn find_user_by_username(
     username: &str,
 ) -> Result<SingleUserResponseBody, error::Error> {
     async move {
-        let state = &context.pool;
+        let pool = &context.state.pool;
 
-        let mut tx = state
+        let mut tx = pool
             .conn()
             .and_then(Connection::begin)
             .await
@@ -144,7 +144,7 @@ pub async fn find_user_by_username(
 
         match entity {
             Err(err) => {
-                info!(context.logger, "DB Provide Error: {:?}", err);
+                info!(context.state.logger, "DB Provide Error: {:?}", err);
                 Err(err)
             }
             Ok(entity) => {
