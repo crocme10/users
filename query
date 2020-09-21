@@ -3,7 +3,8 @@
 endpoint="http://$1:$2/graphql"
 
 curl_cmd="curl -X POST -H 'Content-Type: application/json'"
-curl_cmd="${curl_cmd} --data '{ \"query\":  \"query findUser(\$username: String!) { findUserByUsername(username: \$username) { user { id, username, email, active, createdAt, updatedAt } } }\" , \"variables\": { \"username\": \"eve\" } }'"
+curl_cmd="${curl_cmd} -H 'Authorization: Bearer 12345'"
+curl_cmd="${curl_cmd} --data '{ \"query\":  \"query { users { users { id, username, updatedAt }, usersCount } }\" }'"
 
 curl_cmd="${curl_cmd} ${endpoint}"
 echo ${curl_cmd}

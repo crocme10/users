@@ -63,6 +63,13 @@ pub enum Error {
         msg: String,
         source: biscuit::errors::Error,
     },
+
+    #[snafu(display("Hasher Error: {}", msg))]
+    #[snafu(visibility(pub))]
+    HasherError {
+        msg: String,
+        // source: argonautica::Error, Does not implement Error
+    },
 }
 
 impl IntoFieldError for Error {
@@ -142,6 +149,11 @@ impl IntoFieldError for Error {
                     "Biscuit Error",
                     graphql_value!({ "internal_error": errmsg }),
                 )
+            }
+
+            err @ Error::HasherError { .. } => {
+                let errmsg = format!("{}", err);
+                FieldError::new("Hasher Error", graphql_value!({ "internal_error": errmsg }))
             }
         }
     }

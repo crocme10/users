@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 // but I use this as a placeholder for claims that will pop up in the future
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PrivateClaims {
-    foo: String,
+    pub foo: String,
 }
 
 impl PrivateClaims {

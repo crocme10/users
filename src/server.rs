@@ -1,5 +1,5 @@
 use clap::ArgMatches;
-use slog::{info, o, Logger};
+use slog::{info, Logger};
 use snafu::ResultExt;
 // use sqlx::postgres::PgPool;
 use std::net::ToSocketAddrs;
@@ -21,9 +21,7 @@ pub async fn run_server(settings: Settings, state: State) -> Result<(), error::E
     // We keep a copy of the logger before the context takes ownership of it.
     let logger = state.logger.clone();
 
-    let context = warp::any().map(move || gql::Context {
-        state: state.clone(),
-    });
+    let state = warp::any().map(move || state.clone());
 
     let cors = warp::cors()
         .allow_any_origin()
@@ -33,6 +31,16 @@ pub async fn run_server(settings: Settings, state: State) -> Result<(), error::E
         .build();
 
     let log = warp::log("foo");
+
+    let auth = warp::header("authorization")
+        .map(Some)
+        .or(warp::any().map(|| None))
+        .unify();
+
+    let context = warp::any()
+        .and(state.clone())
+        .and(auth)
+        .map(move |state, token| gql::Context { state, token });
 
     let playground = warp::get()
         .and(warp::path("playground"))
