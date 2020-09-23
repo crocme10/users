@@ -25,6 +25,7 @@ pub struct UserEntity {
     pub username: String,
     pub email: String,
     pub password: String,
+    pub roles: Vec<String>,
     pub active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -37,9 +38,10 @@ impl<'c> FromRow<'c, PgRow<'c>> for UserEntity {
             username: row.get(1),
             email: row.get(2),
             password: row.get(3),
-            active: row.get(4),
-            created_at: row.get(5),
-            updated_at: row.get(6),
+            roles: row.get(4),
+            active: row.get(5),
+            created_at: row.get(6),
+            updated_at: row.get(7),
         })
     }
 }
@@ -51,6 +53,7 @@ impl From<UserEntity> for model::UserEntity {
             username,
             email,
             password,
+            roles,
             active,
             created_at,
             updated_at,
@@ -61,6 +64,7 @@ impl From<UserEntity> for model::UserEntity {
             username,
             email,
             password,
+            roles,
             active,
             created_at,
             updated_at,

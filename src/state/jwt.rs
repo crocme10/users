@@ -57,7 +57,10 @@ impl Jwt {
             })
     }
 
-    pub fn decode(&self, token: &str) -> Result<auth::PrivateClaims, error::Error> {
+    pub fn decode(
+        &self,
+        token: &str,
+    ) -> Result<biscuit::ClaimsSet<auth::PrivateClaims>, error::Error> {
         let token = JWT::<auth::PrivateClaims, biscuit::Empty>::new_encoded(&token);
         let secret = jws::Secret::bytes_from_str(&self.secret);
         let token = token
@@ -70,7 +73,7 @@ impl Jwt {
             .context(error::BiscuitError {
                 msg: String::from("could not get jwt payload"),
             })?
-            .private
+            //.private
             .to_owned();
         Ok(payload)
     }

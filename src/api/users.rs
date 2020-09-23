@@ -310,7 +310,11 @@ pub async fn login_user(
 
         // User is authenticated, so build the jwt token
         let claims = auth::PrivateClaims {
-            foo: String::from("Hello, world"),
+            roles: entity
+                .roles
+                .iter()
+                .map(|role| String::from(role))
+                .collect::<Vec<String>>(),
         };
 
         let user = User::from(entity);

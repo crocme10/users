@@ -6,7 +6,7 @@ secret = "hello"
 
 [jwt]
 secret = "hello"
-duration = 15
+duration = 1
 
 [database]
 echo = true

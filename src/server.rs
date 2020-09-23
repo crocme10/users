@@ -32,8 +32,11 @@ pub async fn run_server(settings: Settings, state: State) -> Result<(), error::E
 
     let log = warp::log("foo");
 
-    let auth = warp::header("authorization")
-        .map(Some)
+    let auth = warp::header::<String>("authorization")
+        .map(|bearer: String| match bearer.strip_prefix("Bearer ") {
+            Some(token) => Some(String::from(token)),
+            None => None,
+        })
         .or(warp::any().map(|| None))
         .unify();
 

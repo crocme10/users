@@ -1,4 +1,4 @@
-FROM rust:1.44-stretch as builder
+FROM rust:1.46-buster as builder
 
 RUN USER=root cargo new --lib users
 WORKDIR ./users
@@ -17,7 +17,7 @@ ADD . ./
 RUN rm ./target/release/deps/users*
 RUN cargo build --release
 
-FROM rust:1.44-stretch
+FROM rust:1.46-buster
 ARG APP=/usr/src/app
 
 RUN apt-get update \

@@ -13,6 +13,7 @@ pub struct UserEntity {
     pub username: String,
     pub email: String,
     pub password: String,
+    pub roles: Vec<String>,
     pub active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

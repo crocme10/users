@@ -172,12 +172,12 @@ pub async fn find_user_by_username(
 
 // This is a helper function which generates the GraphQL query for listing users
 pub fn get_graphql_str_list_users() -> String {
-    String::from("{ \"query\": \"{ users { users { id, username, email, active, createdAt, updatedAt }, usersCount } }\" }")
+    String::from("{ \"query\": \"{ users { users { id, username, email, roles, active, createdAt, updatedAt }, usersCount } }\" }")
 }
 
 // This is a helper function which generates the GraphQL query for adding a user.
 pub fn get_graphql_str_add_user(user: UserRequestBody) -> String {
-    let query = r#" "mutation addUser($user: UserRequestBody!) { addUser(user: $user) { user { id, username, email, active, createdAt, updatedAt } } }" "#;
+    let query = r#" "mutation addUser($user: UserRequestBody!) { addUser(user: $user) { user { id, username, email, roles, active, createdAt, updatedAt } } }" "#;
     let variables = serde_json::to_string(&user).unwrap();
     format!(
         r#"{{ "query": {query}, "variables": {{ "user": {variables} }} }}"#,
@@ -188,7 +188,7 @@ pub fn get_graphql_str_add_user(user: UserRequestBody) -> String {
 
 // This is a helper function which generates the GraphQL query for finding a user.
 pub fn get_graphql_str_find_user(username: &str) -> String {
-    let query = r#" "query findUser($username: String!) { findUserByUsername(username: $username) { user { id, username, email, active, createdAt, updatedAt } } }" "#;
+    let query = r#" "query findUser($username: String!) { findUserByUsername(username: $username) { user { id, username, email, roles, active, createdAt, updatedAt } } }" "#;
     let variables = serde_json::to_string(username).unwrap();
     format!(
         r#"{{ "query": {query}, "variables": {{ "username": {variables} }} }}"#,

@@ -26,12 +26,12 @@ use serde::{Deserialize, Serialize};
 // but I use this as a placeholder for claims that will pop up in the future
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PrivateClaims {
-    pub foo: String,
+    pub roles: Vec<String>,
 }
 
 impl PrivateClaims {
-    pub fn foo(&self) -> String {
-        self.foo.to_owned()
+    pub fn roles(&self) -> Vec<String> {
+        self.roles.to_owned()
     }
 }
 

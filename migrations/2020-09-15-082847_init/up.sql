@@ -12,6 +12,7 @@ CREATE TABLE main.users (
   username VARCHAR(128) NOT NULL UNIQUE CHECK (username <> ''),
   email VARCHAR(128) NOT NULL CHECK (email <> ''),
   password TEXT NOT NULL,
+  roles VARCHAR(128)[] DEFAULT '{}',
   active BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
